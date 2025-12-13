@@ -1,0 +1,35 @@
+palettes:
+  - name: global_palette
+    fixed-entries:
+      - color: {index: 0, r: 255, g: 0, b: 255} # transparent
+      - color: {index: 1, r: 3, g: 102, b: 21} # background
+    images: automatic
+
+converts:
+  - name: sprites
+    palette: global_palette
+    transparent-color-index: 0
+    images:
+      - blank_card.png
+      - medium_heart.png
+      - red_a.png
+      - red_2.png
+      - red_3.png
+      - red_4.png
+      - red_5.png
+      - red_6.png
+      - red_7.png
+      - red_8.png
+      - red_9.png
+      - red_10.png
+      - red_j.png
+      - red_q.png
+      - red_k.png
+
+outputs:
+  - type: c
+    include-file: gfx.h
+    palettes:
+      - global_palette
+    converts:
+      - sprites
