@@ -1,8 +1,12 @@
 palettes:
   - name: global_palette
     fixed-entries:
-      - color: {index: 0, r: 255, g: 0, b: 255} # transparent
-      - color: {index: 1, r: 3, g: 102, b: 21} # background
+      - color: {index: 0, r: 3, g: 102, b: 21} # background
+      - color: {index: 1, r: 255, g: 0, b: 255} # transparent
+      - color: {index: 2, r: 0, g: 60, b: 22} # club color
+      - color: {index: 3, r: 255, g: 179, b: 0} # diomond color
+      - color: {index: 4, r: 255, g: 0, b: 0} # heart color
+      - color: {index: 5, r: 0, g: 9, b: 16} # spade color
     images: automatic
 
 converts:
@@ -25,6 +29,45 @@ converts:
       - red_j.png
       - red_q.png
       - red_k.png
+      - orange_a.png
+      - orange_2.png
+      - orange_3.png
+      - orange_4.png
+      - orange_5.png
+      - orange_6.png
+      - orange_7.png
+      - orange_8.png
+      - orange_9.png
+      - orange_10.png
+      - orange_j.png
+      - orange_q.png
+      - orange_k.png
+      - green_a.png
+      - green_2.png
+      - green_3.png
+      - green_4.png
+      - green_5.png
+      - green_6.png
+      - green_7.png
+      - green_8.png
+      - green_9.png
+      - green_10.png
+      - green_j.png
+      - green_q.png
+      - green_k.png
+      - blue_a.png
+      - blue_2.png
+      - blue_3.png
+      - blue_4.png
+      - blue_5.png
+      - blue_6.png
+      - blue_7.png
+      - blue_8.png
+      - blue_9.png
+      - blue_10.png
+      - blue_j.png
+      - blue_q.png
+      - blue_k.png
 
 outputs:
   - type: c
