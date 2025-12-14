@@ -16,6 +16,7 @@ converts:
     images:
       - blank_card.png
       - medium_heart.png
+      - bard_back.png
       - red_a.png
       - red_2.png
       - red_3.png

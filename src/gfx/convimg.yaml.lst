@@ -4,6 +4,8 @@ blank_card.h
 blank_card.c
 medium_heart.h
 medium_heart.c
+bard_back.h
+bard_back.c
 red_a.h
 red_a.c
 red_2.h
