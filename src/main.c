@@ -27,9 +27,9 @@
 #define CARD_J 10 << 2
 #define CARD_Q 11 << 2
 #define CARD_K 12 << 2
-#define CARD_FACING_MASK 1 << 6
+#define CARD_FACING_MASK 0b1 << 6
 #define CARD_FACEUP 0
-#define CARD_FACEDOWN 1 << 6
+#define CARD_FACEDOWN 0b1 << 6
 
 #define DECK 0
 #define DISCARD 1
@@ -44,59 +44,76 @@
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 #define bound(a, b, c) (max(b, min(a, c)))
 
+#define as_facedown(card) (card | CARD_FACING_MASK)
+#define as_faceup(card) (as_facedown(card) ^ CARD_FACING_MASK)
+#define set_faceup(card) (card = as_faceup(card))
+#define set_facedown(card) (card = as_facedown(card))
+
 gfx_sprite_t** glifs_flipped;
 gfx_sprite_t* glifs[] = {
-	red_a,
-	red_2,
-	red_3,
-	red_4,
-	red_5,
-	red_6,
-	red_7,
-	red_8,
-	red_9,
-	red_10,
-	red_j,
-	red_q,
-	red_k,
-	orange_a,
-	orange_2,
-	orange_3,
-	orange_4,
-	orange_5,
-	orange_6,
-	orange_7,
-	orange_8,
-	orange_9,
-	orange_10,
-	orange_j,
-	orange_q,
-	orange_k,
 	blue_a,
-	blue_2,
-	blue_3,
-	blue_4,
-	blue_5,
-	blue_6,
-	blue_7,
-	blue_8,
-	blue_9,
-	blue_10,
-	blue_j,
-	blue_q,
-	blue_k,
+	red_a,
+	orange_a,
 	green_a,
+
+	blue_2,
+	red_2,
+	orange_2,
 	green_2,
+
+	blue_3,
+	red_3,
+	orange_3,
 	green_3,
+
+	blue_4,
+	red_4,
+	orange_4,
 	green_4,
+	
+	blue_5,
+	red_5,
+	orange_5,
 	green_5,
+	
+	blue_6,
+	red_6,
+	orange_6,
 	green_6,
+
+	blue_7,
+	red_7,
+	orange_7,
 	green_7,
+
+	blue_8,
+	red_8,
+	orange_8,
 	green_8,
+
+	blue_9,
+	red_9,
+	orange_9,
 	green_9,
+
+	blue_10,
+	red_10,
+	orange_10,
 	green_10,
+
+	blue_j,
+	red_j,
+	orange_j,
 	green_j,
+
+	blue_q,
+	red_q,
+	orange_q,
 	green_q,
+
+	blue_k,
+	red_k,
+	orange_k,
 	green_k,
 };
 
@@ -121,7 +138,7 @@ typedef struct {
 	CardStorage storages[13];
 } State;
 
-int step(State* state);
+bool step(State* state);
 void draw(State* state);
 int init_gamestate(State* state);	
 
@@ -169,9 +186,11 @@ Card CardStorage_take_card(CardStorage* cs, u8 index) {
 }
 
 Card CardStorage_take_top_card(CardStorage* cs) {
-	if (cs->usage == 0)
+	if (cs->usage == 0){
 		return -1;
-	return cs->data[--cs->usage];
+	}
+	--cs->usage;
+	return cs->data[cs->usage];
 }
 
 int CardStorage_shuffle(CardStorage* cs) {
@@ -193,66 +212,74 @@ void CardStorage_debug_print(CardStorage* cs) {
 	for (u8 i = 0; i < cs->usage; ++i) {
 		dbg_printf("card: %d\n", (u24)cs->data[i]);
 	}
-	//	dbg_printf("card value: %d, card suit: %d, full card: %d\n", ((u24)card & 0b111100) >> 2, (u24)card & 0b11, (u24)card);
 }
 
 int main(void)
 {
 	gfx_sprite_t* temp1[] = {
-		gfx_RotateSpriteHalf(red_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(red_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(red_k, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(orange_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(orange_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(orange_k, gfx_MallocSprite(6, 10)),
-
 		gfx_RotateSpriteHalf(blue_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(blue_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(blue_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(blue_k, gfx_MallocSprite(6, 10)),
-
+		gfx_RotateSpriteHalf(red_a, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_a, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_a, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_2, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_2, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_2, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_2, gfx_MallocSprite(6, 10)),
+		
+		gfx_RotateSpriteHalf(blue_3, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_3, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_3, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_3, gfx_MallocSprite(6, 10)),
+		
+		gfx_RotateSpriteHalf(blue_4, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_4, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_4, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_4, gfx_MallocSprite(6, 10)),
+		
+		gfx_RotateSpriteHalf(blue_5, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_5, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_5, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_5, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_6, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_6, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_6, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_6, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_7, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_7, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_7, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_7, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_8, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_8, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_8, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_8, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_9, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_9, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_9, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_9, gfx_MallocSprite(6, 10)),
+		
+		gfx_RotateSpriteHalf(blue_10, gfx_MallocSprite(8, 10)),
+		gfx_RotateSpriteHalf(red_10, gfx_MallocSprite(8, 10)),
+		gfx_RotateSpriteHalf(orange_10, gfx_MallocSprite(8, 10)),
 		gfx_RotateSpriteHalf(green_10, gfx_MallocSprite(8, 10)),
+		
+		gfx_RotateSpriteHalf(blue_j, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_j, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_j, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_j, gfx_MallocSprite(6, 10)),
+
+		gfx_RotateSpriteHalf(blue_q, gfx_MallocSprite(7, 10)),
+		gfx_RotateSpriteHalf(red_q, gfx_MallocSprite(7, 10)),
+		gfx_RotateSpriteHalf(orange_q, gfx_MallocSprite(7, 10)),
 		gfx_RotateSpriteHalf(green_q, gfx_MallocSprite(7, 10)),
+
+		gfx_RotateSpriteHalf(blue_k, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(red_k, gfx_MallocSprite(6, 10)),
+		gfx_RotateSpriteHalf(orange_k, gfx_MallocSprite(6, 10)),
 		gfx_RotateSpriteHalf(green_k, gfx_MallocSprite(6, 10)),
 	};
 	glifs_flipped = temp1;
@@ -287,11 +314,12 @@ int main(void)
     gfx_SetTextBGColor(3);
     gfx_SetDrawBuffer();
 
-    while (step(&state) != sk_Clear)
+    while (!step(&state))
     {
         draw(&state);
         gfx_SwapDraw();
-    }
+	}
+
     gfx_End();
 
     return 0;
@@ -324,20 +352,77 @@ int init_gamestate(State* state) {
 			CardStorage_add_card(&state->storages[COLUM + j], card);
 		}
 	}
+	CardStorage_resize(&state->storages[SCORING], 13);
+	CardStorage_resize(&state->storages[SCORING + 1], 13);
+	CardStorage_resize(&state->storages[SCORING + 2], 13);
+	CardStorage_resize(&state->storages[SCORING + 3], 13);
+	state->source_index = state->storages[state->source_storage].usage - 1;
 
 	return 0;
 }
 
-// main looping logic
-int step(State* state)
-{
-	(state->uptime) += 1;
+void set_source_colum(State* state, u8 colum) {
+	state->source_storage = colum;
+	state->source_index = state->storages[state->source_storage].usage - 1;
+}
 
+// main looping logic
+bool step(State* state)
+{
 	uint8_t key;
 	key = os_GetCSC();
+	if ((key == sk_Clear || key == sk_Del)) {
+		return true;
+	}
+	(state->uptime) += 1;
+
+	switch (key) {
+		case sk_Store:
+			CardStorage_add_card(
+				&state->storages[DISCARD],
+				as_faceup(CardStorage_take_top_card(&state->storages[DECK]))
+			);
+		break;
+
+		case sk_Mode:
+			state->storages[state->source_storage].data[state->source_index] ^= CARD_FACING_MASK;
+		break;
+	}
 
 	if (state->gamestate == 0) {
 		switch (key) {
+			case sk_Yequ:
+			case sk_0:
+				set_source_colum(state, 1);
+			break;
+
+			case sk_1:
+				set_source_colum(state, COLUM + 0);
+			break;
+
+			case sk_2:
+				set_source_colum(state, COLUM + 1);
+			break;
+
+			case sk_3:
+				set_source_colum(state, COLUM + 2);
+			break;
+
+			case sk_4:
+				set_source_colum(state, COLUM + 3);
+			break;
+
+			case sk_5:
+				set_source_colum(state, COLUM + 4);
+			break;
+
+			case sk_6:
+				set_source_colum(state, COLUM + 5);
+			break;
+
+			case sk_7:
+				set_source_colum(state, COLUM + 6);
+			break;
 			case sk_Right:
 			if (state->source_storage < 12) {
 				++state->source_storage;
@@ -350,18 +435,18 @@ int step(State* state)
 				state->source_index = state->storages[state->source_storage].usage - 1;
 			}
 			break;
-			case sk_Up:
+			case sk_Down:
 			if (state->source_index < state->storages[state->source_storage].usage - 1) {
 				++state->source_index;
 			}
 			break;
-			case sk_Down:
+			case sk_Up:
 			if (state->source_index > 0) {
 				--state->source_index;
 			}
 			break;
 			case sk_Enter:
-			if (state->source_index != 255) {
+			if (state->source_index < state->storages[state->source_storage].usage) {
 				state->target_storage = state->source_storage;
 				state->gamestate = 1;
 			}
@@ -370,6 +455,38 @@ int step(State* state)
 	}
 	else if (state->gamestate == 1) {
 		switch (key) {
+			case sk_Yequ:
+			case sk_0:
+				state->target_storage = 1;
+			break;
+
+			case sk_1:
+				state->target_storage = COLUM + 0;
+			break;
+
+			case sk_2:
+				state->target_storage = COLUM + 1;
+			break;
+
+			case sk_3:
+				state->target_storage = COLUM + 2;
+			break;
+
+			case sk_4:
+				state->target_storage = COLUM + 3;
+			break;
+
+			case sk_5:
+				state->target_storage = COLUM + 4;
+			break;
+
+			case sk_6:
+				state->target_storage = COLUM + 5;
+			break;
+
+			case sk_7:
+				state->target_storage = COLUM + 6;
+			break;
 			case sk_Right:
 			if (state->target_storage < 12) {
 				++state->target_storage;
@@ -381,21 +498,26 @@ int step(State* state)
 			}
 			break;
 			case sk_Enter:
-			if (state->source_index != 255) {
-				Card card = CardStorage_take_card(&state->storages[state->source_storage], state->source_index);
-				CardStorage_add_card(&state->storages[state->target_storage], card);
+			if (state->source_index < state->storages[state->source_storage].usage) {
+				CardStorage_add_card(
+					&state->storages[state->target_storage],
+					as_faceup(CardStorage_take_card(&state->storages[state->source_storage], state->source_index))
+				);
+				if (state->storages[state->source_storage].usage > 0)
+					set_faceup(state->storages[state->source_storage].data[state->source_index - 1]);
 				state->gamestate = 0;
-				state->source_storage = 0;
-				state->source_index = 0;
+				state->source_storage = state->target_storage;
+				state->source_index = state->storages[state->source_storage].usage - 1;
 				state->target_storage = 0;
 			}
 			break;
 		}
 	}
-    return key;
+    return false;
 }
 
 int drawCard(Card card, int x, int y, bool highlight) {
+	// facedown
 	if ((card & CARD_FACING_MASK) == CARD_FACEDOWN) {
 		gfx_TransparentSprite(bard_back, x, y);
 	}
@@ -411,11 +533,11 @@ int drawCard(Card card, int x, int y, bool highlight) {
 			glif2_x -= 1;
 		gfx_TransparentSprite(glifs[card], glif1_x, glif1_y);
 		gfx_TransparentSprite(glifs_flipped[card], glif2_x, glif2_y);
-		dbg_printf("card value: %d, card suit: %d, full card: %d\n", ((u24)card & CARD_VALUE_MASK) >> 2, (u24)card & 0b11, (u24)card);
 	}
+	// box to highlight selected card
 	if (highlight) {
-		gfx_SetTextScale(1, 1);
-		gfx_PrintStringXY("Selected", x, y);
+		gfx_SetColor(12);
+		gfx_Rectangle(x - 2, y - 2, 44, 60);
 	}
 	return 0;
 }
@@ -426,22 +548,49 @@ void draw(State* state)
 	gfx_ZeroScreen();
 	// playfield
 	for (u8 colum = 0; colum < 7; ++colum) {
+		if (COLUM + colum == state->target_storage) {
+			gfx_SetColor(12);
+			gfx_Rectangle(colum * 46, 58, 44, 64 + max((state->storages[COLUM + colum].usage - 1) * 17, 1));
+		}
 		for (u8 j = 0; j < state->storages[COLUM + colum].usage; ++j) {
 			drawCard(
 				state->storages[COLUM + colum].data[j],
-				colum * 46, j * 17 + 60,
-				(COLUM + colum) == state->source_storage && j == state->source_index);
+				colum * 46 + 2, j * 17 + 60,
+				(COLUM + colum) == state->source_storage && j == state->source_index
+			);
 		}
 	}
 
-	// deck and discard
+	// draw the deck
 	u8 num_to_draw = min(3, state->storages[DECK].usage);
 	for (u8 i = 0; i < num_to_draw; ++i) {
-		drawCard(state->storages[DECK].data[state->storages[DECK].usage - 1 - i], 2 + i * 16, 2, false);
+		drawCard(
+			state->storages[DECK].data[state->storages[DECK].usage + i - num_to_draw],
+			2 + i * 16, 2,
+			DECK == state->source_storage && (state->storages[DECK].usage + i - num_to_draw) == state->source_index
+		);
 	}
+	// draw the discard pile
 	num_to_draw = min(3, state->storages[DISCARD].usage);
 	for (u8 i = 0; i < num_to_draw; ++i) {
-		drawCard(state->storages[DISCARD].data[state->storages[DECK].usage - 1 - i], 80 + i * 16, 2, false);
+		drawCard(
+			state->storages[DISCARD].data[state->storages[DISCARD].usage + i - num_to_draw],
+			80 + i * 16, 2,
+			DISCARD == state->source_storage && (state->storages[DISCARD].usage + i - num_to_draw) == state->source_index
+		);
+	}
+	// draw the scoring piles
+	for (u8 i = 0; i < 4; ++i) {
+		if (SCORING + i == state->target_storage) {
+			gfx_Rectangle(150 + i * 42, 2, 44, 64);
+		}
+		if (state->storages[SCORING + i].usage > 0) {
+			drawCard(
+				state->storages[SCORING + i].data[state->storages[SCORING + i].usage - 1],
+				150 + i * 42, 2,
+				SCORING + i == state->source_storage && state->storages[SCORING + i].usage - 1 == state->source_index
+			);
+		}
 	}
 
 	gfx_SetTextScale(2, 2);
