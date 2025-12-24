@@ -3,6 +3,8 @@
 #include <keypadc.h>
 
 #include "gfx/gfx.h"
+#include "gpfx.h"
+#include "bit_sprites.h"
 
 #include <debug.h>
 
@@ -49,73 +51,6 @@
 #define set_faceup(card) (card = as_faceup(card))
 #define set_facedown(card) (card = as_facedown(card))
 
-gfx_sprite_t** glifs_flipped;
-gfx_sprite_t* glifs[] = {
-	blue_a,
-	red_a,
-	orange_a,
-	green_a,
-
-	blue_2,
-	red_2,
-	orange_2,
-	green_2,
-
-	blue_3,
-	red_3,
-	orange_3,
-	green_3,
-
-	blue_4,
-	red_4,
-	orange_4,
-	green_4,
-	
-	blue_5,
-	red_5,
-	orange_5,
-	green_5,
-	
-	blue_6,
-	red_6,
-	orange_6,
-	green_6,
-
-	blue_7,
-	red_7,
-	orange_7,
-	green_7,
-
-	blue_8,
-	red_8,
-	orange_8,
-	green_8,
-
-	blue_9,
-	red_9,
-	orange_9,
-	green_9,
-
-	blue_10,
-	red_10,
-	orange_10,
-	green_10,
-
-	blue_j,
-	red_j,
-	orange_j,
-	green_j,
-
-	blue_q,
-	red_q,
-	orange_q,
-	green_q,
-
-	blue_k,
-	red_k,
-	orange_k,
-	green_k,
-};
 
 typedef uint8_t u8;
 typedef int8_t i8;
@@ -140,10 +75,7 @@ typedef struct {
 
 bool step(State* state);
 void draw(State* state);
-int init_gamestate(State* state);	
-
-	//glif_sprites = malloc(sizeof(gfx_rletsprite_t) * 13 * 4 * 2);
-	//glif_sprites[GLIF_A | GLIF_CLUBS] = gfx_ConvertMallocRLETSprite(red_a);
+int init_gamestate(State* state);
 
 
 u24 terriblerand() {
@@ -216,74 +148,6 @@ void CardStorage_debug_print(CardStorage* cs) {
 
 int main(void)
 {
-	gfx_sprite_t* temp1[] = {
-		gfx_RotateSpriteHalf(blue_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_a, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_a, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_2, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_2, gfx_MallocSprite(6, 10)),
-		
-		gfx_RotateSpriteHalf(blue_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_3, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_3, gfx_MallocSprite(6, 10)),
-		
-		gfx_RotateSpriteHalf(blue_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_4, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_4, gfx_MallocSprite(6, 10)),
-		
-		gfx_RotateSpriteHalf(blue_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_5, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_5, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_6, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_6, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_7, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_7, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_8, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_8, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_9, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_9, gfx_MallocSprite(6, 10)),
-		
-		gfx_RotateSpriteHalf(blue_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(red_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(orange_10, gfx_MallocSprite(8, 10)),
-		gfx_RotateSpriteHalf(green_10, gfx_MallocSprite(8, 10)),
-		
-		gfx_RotateSpriteHalf(blue_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_j, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_j, gfx_MallocSprite(6, 10)),
-
-		gfx_RotateSpriteHalf(blue_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(red_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(orange_q, gfx_MallocSprite(7, 10)),
-		gfx_RotateSpriteHalf(green_q, gfx_MallocSprite(7, 10)),
-
-		gfx_RotateSpriteHalf(blue_k, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(red_k, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(orange_k, gfx_MallocSprite(6, 10)),
-		gfx_RotateSpriteHalf(green_k, gfx_MallocSprite(6, 10)),
-	};
-	glifs_flipped = temp1;
-
 	State state = {
 		0, // gamestate
 		0, // source_storage
@@ -315,10 +179,16 @@ int main(void)
 	gfx_SetColor(12);
     gfx_SetDrawBuffer();
 
+
     while (!step(&state))
     {
         draw(&state);
-        gfx_SwapDraw();
+		//gpfx_monoMaskSprite(gfx_vbuffer, (10 << 8) + 4);
+
+		gfx_BlitBuffer();
+        //gfx_SwapDraw();
+		//gfx_buffer;
+		//gfx_vbuffer;
 	}
 
     gfx_End();
@@ -606,8 +476,16 @@ int drawCard(Card card, int x, int y, bool highlight) {
 			glif2_x -= 2;
 		if ((card & CARD_VALUE_MASK) == CARD_Q)
 			glif2_x -= 1;
-		gfx_TransparentSprite(glifs[card], glif1_x, glif1_y);
-		gfx_TransparentSprite(glifs_flipped[card], glif2_x, glif2_y);
+		gpfx_monoMaskSprite(
+			*(gfx_vbuffer + glif1_y) + glif1_x,
+			(10 << 8) + (2 + card & CARD_SUIT_MASK),
+			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
+		);
+		gpfx_monoMaskSprite(
+			*(gfx_vbuffer + glif2_y) + glif2_x,
+			(10 << 8) + (2 + card & CARD_SUIT_MASK),
+			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
+		);
 	}
 	// box to highlight selected card
 	if (highlight) {
