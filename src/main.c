@@ -312,6 +312,7 @@ int main(void)
 	gfx_SetTransparentColor(1);
 	gfx_SetTextFGColor(2);
     gfx_SetTextBGColor(3);
+	gfx_SetColor(12);
     gfx_SetDrawBuffer();
 
     while (!step(&state))
@@ -356,6 +357,7 @@ int init_gamestate(State* state) {
 	CardStorage_resize(&state->storages[SCORING + 1], 13);
 	CardStorage_resize(&state->storages[SCORING + 2], 13);
 	CardStorage_resize(&state->storages[SCORING + 3], 13);
+	state->source_storage = COLUM;
 	state->source_index = state->storages[state->source_storage].usage - 1;
 
 	return 0;
@@ -389,62 +391,108 @@ bool step(State* state)
 		break;
 	}
 
+	// select source mode
 	if (state->gamestate == 0) {
 		switch (key) {
+			case sk_Window:
+				if (state->storages[SCORING + 0].usage > 0)
+					set_source_colum(state, SCORING + 0);
+			break;
+
+			case sk_Zoom:
+				if (state->storages[SCORING + 1].usage > 0)
+					set_source_colum(state, SCORING + 1);
+			break;
+
+			case sk_Trace:
+				if (state->storages[SCORING + 2].usage > 0)
+					set_source_colum(state, SCORING + 2);
+			break;
+
+			case sk_Graph:
+				if (state->storages[SCORING + 3].usage > 0)
+					set_source_colum(state, SCORING + 3);
+			break;
+
 			case sk_Yequ:
 			case sk_0:
-				set_source_colum(state, 1);
+				if (state->storages[1].usage > 0)
+					set_source_colum(state, 1);
 			break;
 
 			case sk_1:
-				set_source_colum(state, COLUM + 0);
+				if (state->storages[COLUM + 0].usage > 0)
+					set_source_colum(state, COLUM + 0);
 			break;
 
 			case sk_2:
-				set_source_colum(state, COLUM + 1);
+				if (state->storages[COLUM + 1].usage > 0)
+					set_source_colum(state, COLUM + 1);
 			break;
 
 			case sk_3:
-				set_source_colum(state, COLUM + 2);
+				if (state->storages[COLUM + 2].usage > 0)
+					set_source_colum(state, COLUM + 2);
 			break;
 
 			case sk_4:
-				set_source_colum(state, COLUM + 3);
+				if (state->storages[COLUM + 3].usage > 0)
+					set_source_colum(state, COLUM + 3);
 			break;
 
 			case sk_5:
-				set_source_colum(state, COLUM + 4);
+				if (state->storages[COLUM + 4].usage > 0)
+					set_source_colum(state, COLUM + 4);
 			break;
 
 			case sk_6:
-				set_source_colum(state, COLUM + 5);
+				if (state->storages[COLUM + 5].usage > 0)
+					set_source_colum(state, COLUM + 5);
 			break;
 
 			case sk_7:
-				set_source_colum(state, COLUM + 6);
+				if (state->storages[COLUM + 6].usage > 0)
+					set_source_colum(state, COLUM + 6);
 			break;
+
 			case sk_Right:
-			if (state->source_storage < 12) {
-				++state->source_storage;
-				state->source_index = state->storages[state->source_storage].usage - 1;
-			}
+				do {
+					++state->source_storage;
+					if (state->source_storage > 12)
+						state->source_storage %= 13;
+					if (!(state->storages[state->source_storage].usage == 0 || state->source_storage == 0)) {
+						state->source_index = state->storages[state->source_storage].usage - 1;
+						break;
+					}
+				} while (true);
 			break;
+
 			case sk_Left:
-			if (state->source_storage > 0) {
-				--state->source_storage;
-				state->source_index = state->storages[state->source_storage].usage - 1;
-			}
+				do {
+					if (state->source_storage == 0)
+						state->source_storage = 12;
+					else
+						--state->source_storage;
+					if (!(state->storages[state->source_storage].usage == 0 || state->source_storage == 0)) {
+						state->source_index = state->storages[state->source_storage].usage - 1;
+						break;
+					}
+				} while (true);
 			break;
+
 			case sk_Down:
 			if (state->source_index < state->storages[state->source_storage].usage - 1) {
 				++state->source_index;
 			}
 			break;
+
 			case sk_Up:
 			if (state->source_index > 0) {
 				--state->source_index;
 			}
 			break;
+
+			case sk_2nd:
 			case sk_Enter:
 			if (state->source_index < state->storages[state->source_storage].usage) {
 				state->target_storage = state->source_storage;
@@ -455,9 +503,20 @@ bool step(State* state)
 	}
 	else if (state->gamestate == 1) {
 		switch (key) {
-			case sk_Yequ:
-			case sk_0:
-				state->target_storage = 1;
+			case sk_Window:
+				state->target_storage = SCORING + 0;
+			break;
+
+			case sk_Zoom:
+				state->target_storage = SCORING + 1;
+			break;
+
+			case sk_Trace:
+				state->target_storage = SCORING + 2;
+			break;
+
+			case sk_Graph:
+				state->target_storage = SCORING + 3;
 			break;
 
 			case sk_1:
@@ -487,29 +546,45 @@ bool step(State* state)
 			case sk_7:
 				state->target_storage = COLUM + 6;
 			break;
+
 			case sk_Right:
-			if (state->target_storage < 12) {
-				++state->target_storage;
-			}
+				do {
+					++state->target_storage;
+					if (state->target_storage > 12)
+						state->target_storage %= 13;
+					if (state->target_storage != 0 && state->target_storage != 1)
+						break;
+				} while (true);
 			break;
+
 			case sk_Left:
-			if (state->target_storage > 0) {
-				--state->target_storage;
-			}
+				do {
+					if (state->target_storage == 0)
+						state->target_storage = 12;
+					else
+						--state->target_storage;
+					if (state->target_storage != 0 && state->target_storage != 1)
+						break;
+				} while (true);
 			break;
+
+			case sk_2nd:
 			case sk_Enter:
-			if (state->source_index < state->storages[state->source_storage].usage) {
-				CardStorage_add_card(
-					&state->storages[state->target_storage],
-					as_faceup(CardStorage_take_card(&state->storages[state->source_storage], state->source_index))
-				);
+				do {
+					CardStorage_add_card(
+						&state->storages[state->target_storage],
+						as_faceup(CardStorage_take_card(
+							&state->storages[state->source_storage],
+							state->source_index
+						))
+					);
+				} while (state->storages[state->source_storage].usage > state->source_index);
 				if (state->storages[state->source_storage].usage > 0)
 					set_faceup(state->storages[state->source_storage].data[state->source_index - 1]);
 				state->gamestate = 0;
 				state->source_storage = state->target_storage;
 				state->source_index = state->storages[state->source_storage].usage - 1;
 				state->target_storage = 0;
-			}
 			break;
 		}
 	}
@@ -536,7 +611,6 @@ int drawCard(Card card, int x, int y, bool highlight) {
 	}
 	// box to highlight selected card
 	if (highlight) {
-		gfx_SetColor(12);
 		gfx_Rectangle(x - 2, y - 2, 44, 60);
 	}
 	return 0;
@@ -549,7 +623,6 @@ void draw(State* state)
 	// playfield
 	for (u8 colum = 0; colum < 7; ++colum) {
 		if (COLUM + colum == state->target_storage) {
-			gfx_SetColor(12);
 			gfx_Rectangle(colum * 46, 58, 44, 64 + max((state->storages[COLUM + colum].usage - 1) * 17, 1));
 		}
 		for (u8 j = 0; j < state->storages[COLUM + colum].usage; ++j) {
@@ -582,7 +655,7 @@ void draw(State* state)
 	// draw the scoring piles
 	for (u8 i = 0; i < 4; ++i) {
 		if (SCORING + i == state->target_storage) {
-			gfx_Rectangle(150 + i * 42, 2, 44, 64);
+			gfx_Rectangle_NoClip(150 + i * 42, 0, 40, 61);
 		}
 		if (state->storages[SCORING + i].usage > 0) {
 			drawCard(
