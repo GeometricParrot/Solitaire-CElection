@@ -11,10 +11,10 @@
 #include <string.h>
 
 #define CARD_SUIT_MASK 0b11
-#define CARD_CLUBS 3
-#define CARD_DIAMONDS 2
-#define CARD_HEARTS 1
 #define CARD_SPADES 0
+#define CARD_HEARTS 1
+#define CARD_DIAMONDS 2
+#define CARD_CLUBS 3
 #define CARD_VALUE_MASK 0b1111 << 2
 #define CARD_A 0 << 2
 #define CARD_2 1 << 2
@@ -137,6 +137,10 @@ Card cs_take_top_card(CardStorage* cs) {
 	}
 	--cs->usage;
 	return cs->data[cs->usage];
+}
+
+bool cs_colum_will_accept_card(CardStorage* cs, Card card) {
+	return false;
 }
 
 int cs_shuffle(CardStorage* cs) {
@@ -463,21 +467,22 @@ int drawCard(Card card, int x, int y, bool highlight) {
 		gfx_TransparentSprite(blank_card, x, y);
 		int glif1_x = x + 2;
 		int glif1_y = y + 2;
-		int glif2_x = x + 40 - 2 - 6;
+		int glif2_x = x + 40 - 2 - 8;
 		int glif2_y = y + 56 - 10 - 2;
-		if ((card & CARD_VALUE_MASK) == CARD_10)
-			glif2_x -= 2;
-		if ((card & CARD_VALUE_MASK) == CARD_Q)
-			glif2_x -= 1;
 		gpfx_monoMaskSprite(
 			*(gfx_vbuffer + glif1_y) + glif1_x,
-			(10 << 8) + (2 + card & CARD_SUIT_MASK),
+			(10 << 8) + (2 + (card & CARD_SUIT_MASK)),
+			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
+		);
+		gpfx_monoMaskSprite_flipped(
+			*(gfx_vbuffer + glif2_y) + glif2_x,
+			(10 << 8) + (2 + (card & CARD_SUIT_MASK)),
 			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
 		);
 		gpfx_monoMaskSprite(
-			*(gfx_vbuffer + glif2_y) + glif2_x,
-			(10 << 8) + (2 + card & CARD_SUIT_MASK),
-			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
+			*(gfx_vbuffer + y + 24) + x + 16,
+			(7 << 8) + (2 + (card & CARD_SUIT_MASK)),
+			data + 130 + 7 * (card & CARD_SUIT_MASK)
 		);
 	}
 	// box to highlight selected card
@@ -534,6 +539,13 @@ void draw()
 				150 + i * 42, 2,
 				SCORING + i == source_storage && storages[SCORING + i].usage - 1 == source_index
 			);
+		}
+		else {
+			gpfx_monoMaskSprite(
+			*(gfx_vbuffer + 24) + 150 + i * 42,
+			(7 << 8) + (5),
+			data + 130 + 7 * (i)
+		);
 		}
 	}
 

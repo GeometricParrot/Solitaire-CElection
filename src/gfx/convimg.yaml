@@ -3,10 +3,10 @@ palettes:
     fixed-entries:
       - color: {index: 0, r: 3, g: 102, b: 21} # background
       - color: {index: 1, r: 255, g: 0, b: 255} # transparent
-      - color: {index: 2, r: 0, g: 60, b: 22} # club color
-      - color: {index: 3, r: 255, g: 179, b: 0} # diomond color
-      - color: {index: 4, r: 255, g: 0, b: 0} # heart color
-      - color: {index: 5, r: 0, g: 9, b: 16} # spade color
+      - color: {index: 2, r: 0, g: 9, b: 16} # spade color
+      - color: {index: 3, r: 255, g: 0, b: 0} # heart color
+      - color: {index: 4, r: 255, g: 179, b: 0} # diomond color
+      - color: {index: 5, r: 0, g: 60, b: 22} # club color
     images: automatic
 
 converts:
