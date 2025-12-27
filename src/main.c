@@ -240,7 +240,7 @@ bool step()
 {
 	uint8_t key;
 	key = os_GetCSC();
-	if ((key == sk_Clear || key == sk_Del)) {
+	if (key == sk_Del) {
 		return true;
 	}
 	(uptime) += 1;
@@ -255,6 +255,19 @@ bool step()
 
 		case sk_Mode:
 			storages[source_storage].data[source_index] ^= CARD_FACING_MASK;
+		break;
+
+		case sk_Clear:
+		case sk_Alpha:
+			gamestate = 0;
+			target_storage = 0;
+			while (storages[source_storage].usage == 0) {
+				
+				++source_storage;
+				if (source_storage > 12)
+					source_storage %= 13;
+			}
+			source_index = storages[source_storage].usage - 1;
 		break;
 	}
 
@@ -323,28 +336,24 @@ bool step()
 			break;
 
 			case sk_Right:
-				do {
+				++source_storage;
+				while (storages[source_storage].usage == 0 || source_storage == 0) {
 					++source_storage;
 					if (source_storage > 12)
 						source_storage %= 13;
-					if (!(storages[source_storage].usage == 0 || source_storage == 0)) {
-						source_index = storages[source_storage].usage - 1;
-						break;
-					}
-				} while (true);
+				}
+				source_index = storages[source_storage].usage - 1;
 			break;
 
 			case sk_Left:
-				do {
+				--source_storage;
+				while (storages[source_storage].usage == 0 || source_storage == 0) {
 					if (source_storage == 0)
 						source_storage = 12;
 					else
 						--source_storage;
-					if (!(storages[source_storage].usage == 0 || source_storage == 0)) {
-						source_index = storages[source_storage].usage - 1;
-						break;
-					}
-				} while (true);
+				}
+				source_index = storages[source_storage].usage - 1;
 			break;
 
 			case sk_Down:
@@ -437,6 +446,8 @@ bool step()
 
 			case sk_2nd:
 			case sk_Enter:
+				if (target_storage == source_storage)
+					break;
 				do {
 					cs_add_card(
 						&storages[target_storage],
@@ -499,12 +510,12 @@ void draw()
 	// playfield
 	for (u8 colum = 0; colum < 7; ++colum) {
 		if (COLUM + colum == target_storage) {
-			gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 17, 1));
+			gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 13, 1));
 		}
 		for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
 			drawCard(
 				storages[COLUM + colum].data[j],
-				colum * 46 + 2, j * 17 + 60,
+				colum * 46 + 2, j * 13 + 60,
 				(COLUM + colum) == source_storage && j == source_index
 			);
 		}
@@ -542,7 +553,7 @@ void draw()
 		}
 		else {
 			gpfx_monoMaskSprite(
-			*(gfx_vbuffer + 24) + 150 + i * 42,
+			*(gfx_vbuffer + 24 + 2) + 16 + 150 + i * 42,
 			(7 << 8) + (5),
 			data + 130 + 7 * (i)
 		);
