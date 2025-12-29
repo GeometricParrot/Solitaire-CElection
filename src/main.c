@@ -32,6 +32,7 @@
 #define CARD_FACING_MASK 0b1 << 6
 #define CARD_FACEUP 0
 #define CARD_FACEDOWN 0b1 << 6
+#define CARD_INVALID 255
 
 #define DECK 0
 #define DISCARD 1
@@ -115,7 +116,7 @@ int cs_resize(CardStorage* cs, u8 new_capacity) {
 }
 
 int cs_add_card(CardStorage* cs, Card new_card) {
-	if (cs->usage + 1 > cs->capacity)
+	if (cs->usage + 1 > cs->capacity || new_card == CARD_INVALID)
 		return 1;
 	cs->data[cs->usage] = new_card;
 	++cs->usage;
@@ -124,7 +125,7 @@ int cs_add_card(CardStorage* cs, Card new_card) {
 
 Card cs_take_card(CardStorage* cs, u8 index) {
 	if (index >= cs->usage)
-		return -1;
+		return CARD_INVALID;
 	Card out = cs->data[index];
 	memmove(&cs->data[index], &cs->data[index + 1], sizeof(Card) * ((cs->usage - 1) - index));
 	--cs->usage;
@@ -133,15 +134,15 @@ Card cs_take_card(CardStorage* cs, u8 index) {
 
 Card cs_take_top_card(CardStorage* cs) {
 	if (cs->usage == 0){
-		return -1;
+		return CARD_INVALID;
 	}
 	--cs->usage;
 	return cs->data[cs->usage];
 }
 
-bool cs_colum_will_accept_card(CardStorage* cs, Card card) {
-	return false;
-}
+//bool cs_colum_will_accept_card(CardStorage* cs, Card card) {
+//	return false;
+//}
 
 int cs_shuffle(CardStorage* cs) {
 	if (cs->usage < 1)
@@ -240,24 +241,34 @@ bool step()
 {
 	uint8_t key;
 	key = os_GetCSC();
-	if (key == sk_Del) {
+	if (key == sk_Clear) {
 		return true;
 	}
 	(uptime) += 1;
 
 	switch (key) {
 		case sk_Store:
-			cs_add_card(
-				&storages[DISCARD],
-				as_faceup(cs_take_top_card(&storages[DECK]))
-			);
+			if (storages[DECK].usage > 0) {
+				cs_add_card(
+					&storages[DISCARD],
+					as_faceup(cs_take_top_card(&storages[DECK]))
+				);
+			}
+			else {
+				while (storages[DISCARD].usage > 0) {
+					cs_add_card(
+						&storages[DECK],
+						as_facedown(cs_take_top_card(&storages[DISCARD]))
+					);
+				}
+			}
 		break;
 
 		case sk_Mode:
 			storages[source_storage].data[source_index] ^= CARD_FACING_MASK;
 		break;
 
-		case sk_Clear:
+		case sk_Del:
 		case sk_Alpha:
 			gamestate = 0;
 			target_storage = 0;
@@ -490,11 +501,22 @@ int drawCard(Card card, int x, int y, bool highlight) {
 			(10 << 8) + (2 + (card & CARD_SUIT_MASK)),
 			data + 10 * ((card & CARD_VALUE_MASK) >> 2)
 		);
-		gpfx_monoMaskSprite(
-			*(gfx_vbuffer + y + 24) + x + 16,
-			(7 << 8) + (2 + (card & CARD_SUIT_MASK)),
-			data + 130 + 7 * (card & CARD_SUIT_MASK)
-		);
+		unsigned int height_color = (7 << 8) + (2 + (card & CARD_SUIT_MASK));
+		void* glif = data + 130 + 7 * (card & CARD_SUIT_MASK);
+		
+		u8 value = (card & CARD_VALUE_MASK) >> 2;
+		u8 sum = (value*(value+1)) / 2;
+		if (value < 10) {
+			dbg_printf("card value: %d", value);
+			for (u8 i = 0; i <= value; ++i) {
+				gpfx_monoMaskSprite(
+					*(gfx_vbuffer + y + glif_locations_y[sum + i]) + x + glif_locations_x[sum + i],
+					height_color,
+					glif
+				);
+			}
+		}
+		
 	}
 	// box to highlight selected card
 	if (highlight) {
@@ -571,4 +593,3 @@ void draw()
 	//gfx_PrintInt(gamestate, 2);
 
 }
-

@@ -2,8 +2,6 @@ global_palette.h
 global_palette.c
 blank_card.h
 blank_card.c
-medium_heart.h
-medium_heart.c
 bard_back.h
 bard_back.c
 gfx.h
