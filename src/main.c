@@ -71,6 +71,7 @@ u8 source_storage = 0;
 u8 source_index = 0;
 u8 target_storage = 0;
 u24 uptime = 0;
+bool valid_target = false;
 CardStorage storages[] = {
 	{0, 0, 0},
 	{0, 0, 0},
@@ -140,10 +141,6 @@ Card cs_take_top_card(CardStorage* cs) {
 	return cs->data[cs->usage];
 }
 
-//bool cs_colum_will_accept_card(CardStorage* cs, Card card) {
-//	return false;
-//}
-
 int cs_shuffle(CardStorage* cs) {
 	if (cs->usage < 1)
 		return 1;
@@ -174,7 +171,7 @@ int main(void)
 	gfx_SetTransparentColor(1);
 	gfx_SetTextFGColor(2);
     gfx_SetTextBGColor(3);
-	gfx_SetColor(12);
+	gfx_SetColor(8);
     gfx_SetDrawBuffer();
 
 
@@ -457,23 +454,80 @@ bool step()
 
 			case sk_2nd:
 			case sk_Enter:
-				if (target_storage == source_storage)
-					break;
-				do {
-					cs_add_card(
-						&storages[target_storage],
-						as_faceup(cs_take_card(
-							&storages[source_storage],
-							source_index
-						))
-					);
-				} while (storages[source_storage].usage > source_index);
-				if (storages[source_storage].usage > 0)
-					set_faceup(storages[source_storage].data[source_index - 1]);
+				if (valid_target) {
+					do {
+						cs_add_card(
+							&storages[target_storage],
+							as_faceup(cs_take_card(
+								&storages[source_storage],
+								source_index
+							))
+						);
+					} while (storages[source_storage].usage > source_index);
+					if (storages[source_storage].usage > 0)
+						set_faceup(storages[source_storage].data[source_index - 1]);
+				}
 				gamestate = 0;
-				source_storage = target_storage;
+				if (target_storage >= COLUM && target_storage <= COLUM + 7)
+					source_storage = target_storage;
 				source_index = storages[source_storage].usage - 1;
 				target_storage = 0;
+			break;
+		}
+	}
+	// disqualifyers
+	switch (target_storage) {
+		
+	}
+	if (
+		target_storage < COLUM || target_storage > SCORING + 3
+		|| target_storage == source_storage
+	) {
+		valid_target = false;
+	} else {
+		switch (target_storage) {
+			case COLUM + 0:
+			case COLUM + 1:
+			case COLUM + 2:
+			case COLUM + 3:
+			case COLUM + 4:
+			case COLUM + 5:
+			case COLUM + 6:
+				// if top card number is +1 and suit is compatable
+				dbg_printf("%d\n", (storages[target_storage].data[storages[target_storage].usage - 1] & CARD_VALUE_MASK));
+				if (( // kings on blank spaces
+					storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_K
+					&& (storages[target_storage].usage == 0)
+				) {
+					valid_target = true;
+				} else if ( // other cards
+					(storages[target_storage].data[storages[target_storage].usage - 1] & CARD_VALUE_MASK) >> 2
+					== ((storages[source_storage].data[source_index] & CARD_VALUE_MASK) >> 2) + 1
+					&& true // TODO suits
+				) {
+					valid_target = true;
+				}
+				else {
+					valid_target = false;
+				}
+			break;
+
+			case SCORING + 0:
+			case SCORING + 1:
+			case SCORING + 2:
+			case SCORING + 3:
+				if ((
+					storages[source_storage].data[source_index] & CARD_SUIT_MASK) == target_storage - SCORING
+					&& true // TODO values
+				) {
+					valid_target = true;
+				} else {
+					valid_target = false;
+				}
+			break;
+
+			default:
+				valid_target = false;
 			break;
 		}
 	}
@@ -507,7 +561,7 @@ int drawCard(Card card, int x, int y, bool highlight) {
 		u8 value = (card & CARD_VALUE_MASK) >> 2;
 		u8 sum = (value*(value+1)) / 2;
 		if (value < 10) {
-			dbg_printf("card value: %d", value);
+			//dbg_printf("card value: %d", value);
 			for (u8 i = 0; i <= value; ++i) {
 				gpfx_monoMaskSprite(
 					*(gfx_vbuffer + y + glif_locations_y[sum + i]) + x + glif_locations_x[sum + i],
@@ -520,6 +574,7 @@ int drawCard(Card card, int x, int y, bool highlight) {
 	}
 	// box to highlight selected card
 	if (highlight) {
+		gfx_SetColor(8);
 		gfx_Rectangle(x - 2, y - 2, 44, 60);
 	}
 	return 0;
@@ -532,6 +587,10 @@ void draw()
 	// playfield
 	for (u8 colum = 0; colum < 7; ++colum) {
 		if (COLUM + colum == target_storage) {
+			if (valid_target)
+				gfx_SetColor(6);
+			else
+				gfx_SetColor(7);
 			gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 13, 1));
 		}
 		for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
@@ -564,6 +623,10 @@ void draw()
 	// draw the scoring piles
 	for (u8 i = 0; i < 4; ++i) {
 		if (SCORING + i == target_storage) {
+			if (valid_target)
+				gfx_SetColor(6);
+			else
+				gfx_SetColor(7);
 			gfx_Rectangle_NoClip(150 + i * 42, 0, 40, 61);
 		}
 		if (storages[SCORING + i].usage > 0) {
