@@ -10,6 +10,12 @@
 
 #include <string.h>
 
+#define COLOR_BACKGROUND 0
+#define COLOR_TRANSPARENT 1
+#define COLOR_VALID_SELECTION 6
+#define COLOR_INVALID_SELECTION 7
+#define COLOR_WHITE 8
+
 #define CARD_SUIT_MASK 0b11
 #define CARD_SPADES 0
 #define CARD_HEARTS 1
@@ -51,6 +57,8 @@
 #define as_faceup(card) (as_facedown(card) ^ CARD_FACING_MASK)
 #define set_faceup(card) (card = as_faceup(card))
 #define set_facedown(card) (card = as_facedown(card))
+
+#define top_card(index) storages[index].data[storages[index].usage - 1]
 
 
 typedef uint8_t u8;
@@ -104,8 +112,10 @@ u24 terriblerand() {
 }
 
 int cs_resize(CardStorage* cs, u8 new_capacity) {
-	if (new_capacity < cs->usage)
+	if (new_capacity < cs->usage) {
+		dbg_printf("Error in cs_resize(), new capacity < usage.\n");
 		return 1;
+	}
 	Card* temp_pointer = malloc(sizeof(Card) * new_capacity);
 	if (!temp_pointer)
 		return 1;
@@ -117,16 +127,20 @@ int cs_resize(CardStorage* cs, u8 new_capacity) {
 }
 
 int cs_add_card(CardStorage* cs, Card new_card) {
-	if (cs->usage + 1 > cs->capacity || new_card == CARD_INVALID)
+	if (cs->usage + 1 > cs->capacity || new_card == CARD_INVALID) {
+		dbg_printf("Error in cs_add_card(), card invalid or card won't fit.\n");
 		return 1;
+	}
 	cs->data[cs->usage] = new_card;
 	++cs->usage;
 	return 0;
 }
 
 Card cs_take_card(CardStorage* cs, u8 index) {
-	if (index >= cs->usage)
+	if (index >= cs->usage) {
+		dbg_printf("Error in cs_take_card(), index (%d) out of bounds.\n", index);
 		return CARD_INVALID;
+	}
 	Card out = cs->data[index];
 	memmove(&cs->data[index], &cs->data[index + 1], sizeof(Card) * ((cs->usage - 1) - index));
 	--cs->usage;
@@ -134,7 +148,8 @@ Card cs_take_card(CardStorage* cs, u8 index) {
 }
 
 Card cs_take_top_card(CardStorage* cs) {
-	if (cs->usage == 0){
+	if (cs->usage == 0) {
+		dbg_printf("Error in cs_take_top_card(), no cards to take.\n");
 		return CARD_INVALID;
 	}
 	--cs->usage;
@@ -142,8 +157,10 @@ Card cs_take_top_card(CardStorage* cs) {
 }
 
 int cs_shuffle(CardStorage* cs) {
-	if (cs->usage < 1)
+	if (cs->usage < 1) {
+		dbg_printf("Error in cs_shuffle(), no cards to shuffle.\n");
 		return 1;
+	}
 	for (u8 i = 0; i < 100; ++i) {
 		u24 rand1 = terriblerand() % cs->usage;
 		u24 rand2 = terriblerand() % cs->usage;
@@ -168,22 +185,16 @@ int main(void)
 
 	gfx_Begin();
 	gfx_SetPalette(global_palette, sizeof_global_palette, 0);
-	gfx_SetTransparentColor(1);
-	gfx_SetTextFGColor(2);
-    gfx_SetTextBGColor(3);
-	gfx_SetColor(8);
+	gfx_SetTransparentColor(COLOR_TRANSPARENT);
     gfx_SetDrawBuffer();
 
 
     while (!step())
     {
         draw();
-		//gpfx_monoMaskSprite(gfx_vbuffer, (10 << 8) + 4);
 
-		gfx_BlitBuffer();
-        //gfx_SwapDraw();
-		//gfx_buffer;
-		//gfx_vbuffer;
+		//gfx_BlitBuffer();
+        gfx_SwapDraw();
 	}
 
     gfx_End();
@@ -233,15 +244,32 @@ void set_source_colum(u8 colum) {
 	source_index = storages[source_storage].usage - 1;
 }
 
+u8 pair_suit(u8 suit) {
+	switch (suit) {
+		case CARD_SPADES:
+		return CARD_CLUBS;
+
+		case CARD_CLUBS:
+		return CARD_SPADES;
+
+		case CARD_HEARTS:
+		return CARD_DIAMONDS;
+
+		case CARD_DIAMONDS:
+		return CARD_HEARTS;
+	}
+	dbg_printf("Error, %d is invalid suit.\n", suit);
+	return 0;
+}
+
 // main looping logic
 bool step()
 {
-	uint8_t key;
-	key = os_GetCSC();
+	uint8_t key = os_GetCSC();
 	if (key == sk_Clear) {
 		return true;
 	}
-	(uptime) += 1;
+	++uptime;
 
 	switch (key) {
 		case sk_Store:
@@ -475,10 +503,6 @@ bool step()
 			break;
 		}
 	}
-	// disqualifyers
-	switch (target_storage) {
-		
-	}
 	if (
 		target_storage < COLUM || target_storage > SCORING + 3
 		|| target_storage == source_storage
@@ -494,16 +518,20 @@ bool step()
 			case COLUM + 5:
 			case COLUM + 6:
 				// if top card number is +1 and suit is compatable
-				dbg_printf("%d\n", (storages[target_storage].data[storages[target_storage].usage - 1] & CARD_VALUE_MASK));
-				if (( // kings on blank spaces
-					storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_K
+				dbg_printf("%d\n", (top_card(target_storage) & CARD_VALUE_MASK));
+				if ( // kings on blank spaces
+					(storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_K
 					&& (storages[target_storage].usage == 0)
 				) {
 					valid_target = true;
-				} else if ( // other cards
-					(storages[target_storage].data[storages[target_storage].usage - 1] & CARD_VALUE_MASK) >> 2
-					== ((storages[source_storage].data[source_index] & CARD_VALUE_MASK) >> 2) + 1
-					&& true // TODO suits
+				} else if (
+					(
+						(top_card(target_storage) & CARD_VALUE_MASK) // top target card
+						== (storages[source_storage].data[source_index] & CARD_VALUE_MASK) + (1 << 2) // == top source + 1
+					) && ( // opposite color suit
+						(top_card(target_storage) & CARD_SUIT_MASK) != (storages[source_storage].data[source_index] & CARD_SUIT_MASK)
+						&& (top_card(target_storage) & CARD_SUIT_MASK) != pair_suit(storages[source_storage].data[source_index] & CARD_SUIT_MASK)
+					)
 				) {
 					valid_target = true;
 				}
@@ -516,9 +544,19 @@ bool step()
 			case SCORING + 1:
 			case SCORING + 2:
 			case SCORING + 3:
-				if ((
-					storages[source_storage].data[source_index] & CARD_SUIT_MASK) == target_storage - SCORING
-					&& true // TODO values
+				if (
+					( // correct suit
+						(storages[source_storage].data[source_index] & CARD_SUIT_MASK) == target_storage - SCORING
+					) && (
+						(
+							storages[target_storage].usage == 0 // target empty
+							&& ((storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_A) // source is ace
+						) || ( // target used and source == target + 1
+							storages[target_storage].usage > 0 // target has cards
+							&& (storages[source_storage].data[source_index] & CARD_VALUE_MASK) // source card && value
+								== (top_card(target_storage) & CARD_VALUE_MASK) + (1 << 2) // == target + 1
+						)
+					)
 				) {
 					valid_target = true;
 				} else {
@@ -574,7 +612,7 @@ int drawCard(Card card, int x, int y, bool highlight) {
 	}
 	// box to highlight selected card
 	if (highlight) {
-		gfx_SetColor(8);
+		gfx_SetColor(COLOR_WHITE);
 		gfx_Rectangle(x - 2, y - 2, 44, 60);
 	}
 	return 0;
@@ -588,9 +626,9 @@ void draw()
 	for (u8 colum = 0; colum < 7; ++colum) {
 		if (COLUM + colum == target_storage) {
 			if (valid_target)
-				gfx_SetColor(6);
+				gfx_SetColor(COLOR_VALID_SELECTION);
 			else
-				gfx_SetColor(7);
+				gfx_SetColor(COLOR_INVALID_SELECTION);
 			gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 13, 1));
 		}
 		for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
@@ -624,14 +662,14 @@ void draw()
 	for (u8 i = 0; i < 4; ++i) {
 		if (SCORING + i == target_storage) {
 			if (valid_target)
-				gfx_SetColor(6);
+				gfx_SetColor(COLOR_VALID_SELECTION);
 			else
-				gfx_SetColor(7);
+				gfx_SetColor(COLOR_INVALID_SELECTION);
 			gfx_Rectangle_NoClip(150 + i * 42, 0, 40, 61);
 		}
 		if (storages[SCORING + i].usage > 0) {
 			drawCard(
-				storages[SCORING + i].data[storages[SCORING + i].usage - 1],
+				top_card(SCORING + i),
 				150 + i * 42, 2,
 				SCORING + i == source_storage && storages[SCORING + i].usage - 1 == source_index
 			);
@@ -644,15 +682,4 @@ void draw()
 		);
 		}
 	}
-
-	//gfx_SetTextScale(2, 2);
-	//gfx_PrintStringXY("sel_sto:", 0, 192);
-	//gfx_PrintInt(source_storage, 2);
-	//gfx_PrintStringXY("sel_index:", 0, 208);
-	//gfx_PrintInt(source_index, 2);
-	//gfx_PrintStringXY("tar_sto:", 0, 224);
-	//gfx_PrintInt(target_storage, 2);
-	//gfx_PrintString(" state:");
-	//gfx_PrintInt(gamestate, 2);
-
 }
