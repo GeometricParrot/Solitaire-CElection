@@ -1,7 +1,9 @@
 global_palette.h
 global_palette.c
-blank_card.h
-blank_card.c
-bard_back.h
-bard_back.c
+blank_cardv2.h
+blank_cardv2.c
+bard_backv2.h
+bard_backv2.c
+king.h
+king.c
 gfx.h

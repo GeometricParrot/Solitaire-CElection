@@ -40,6 +40,9 @@
 #define CARD_FACEDOWN 0b1 << 6
 #define CARD_INVALID 255
 
+#define CARD_WIDTH 39
+#define CARD_HEIGHT 55
+
 #define DECK 0
 #define DISCARD 1
 #define COLUM 2
@@ -75,9 +78,9 @@ typedef struct {
 
 
 u8 gamestate = 0;
-u8 source_storage = 0;
-u8 source_index = 0;
-u8 target_storage = 0;
+u8 src_sto = 0;
+u8 src_index = 0;
+u8 tar_sto = 0;
 u24 uptime = 0;
 bool valid_target = false;
 CardStorage storages[] = {
@@ -233,15 +236,15 @@ int init_gamestate() {
 	cs_resize(&storages[SCORING + 1], 13);
 	cs_resize(&storages[SCORING + 2], 13);
 	cs_resize(&storages[SCORING + 3], 13);
-	source_storage = COLUM;
-	source_index = storages[source_storage].usage - 1;
+	src_sto = COLUM;
+	src_index = storages[src_sto].usage - 1;
 
 	return 0;
 }
 
 void set_source_colum(u8 colum) {
-	source_storage = colum;
-	source_index = storages[source_storage].usage - 1;
+	src_sto = colum;
+	src_index = storages[src_sto].usage - 1;
 }
 
 u8 pair_suit(u8 suit) {
@@ -290,20 +293,20 @@ bool step()
 		break;
 
 		case sk_Mode:
-			storages[source_storage].data[source_index] ^= CARD_FACING_MASK;
+			storages[src_sto].data[src_index] ^= CARD_FACING_MASK;
 		break;
 
 		case sk_Del:
 		case sk_Alpha:
 			gamestate = 0;
-			target_storage = 0;
-			while (storages[source_storage].usage == 0) {
+			tar_sto = 0;
+			while (storages[src_sto].usage == 0) {
 				
-				++source_storage;
-				if (source_storage > 12)
-					source_storage %= 13;
+				++src_sto;
+				if (src_sto > 12)
+					src_sto %= 13;
 			}
-			source_index = storages[source_storage].usage - 1;
+			src_index = storages[src_sto].usage - 1;
 		break;
 	}
 
@@ -372,42 +375,42 @@ bool step()
 			break;
 
 			case sk_Right:
-				++source_storage;
-				while (storages[source_storage].usage == 0 || source_storage == 0) {
-					++source_storage;
-					if (source_storage > 12)
-						source_storage %= 13;
+				++src_sto;
+				while (storages[src_sto].usage == 0 || src_sto == 0) {
+					++src_sto;
+					if (src_sto > 12)
+						src_sto %= 13;
 				}
-				source_index = storages[source_storage].usage - 1;
+				src_index = storages[src_sto].usage - 1;
 			break;
 
 			case sk_Left:
-				--source_storage;
-				while (storages[source_storage].usage == 0 || source_storage == 0) {
-					if (source_storage == 0)
-						source_storage = 12;
+				--src_sto;
+				while (storages[src_sto].usage == 0 || src_sto == 0) {
+					if (src_sto == 0)
+						src_sto = 12;
 					else
-						--source_storage;
+						--src_sto;
 				}
-				source_index = storages[source_storage].usage - 1;
+				src_index = storages[src_sto].usage - 1;
 			break;
 
 			case sk_Down:
-			if (source_index < storages[source_storage].usage - 1) {
-				++source_index;
+			if (src_index < storages[src_sto].usage - 1) {
+				++src_index;
 			}
 			break;
 
 			case sk_Up:
-			if (source_index > 0) {
-				--source_index;
+			if (src_index > 0) {
+				--src_index;
 			}
 			break;
 
 			case sk_2nd:
 			case sk_Enter:
-			if (source_index < storages[source_storage].usage) {
-				target_storage = source_storage;
+			if (src_index < storages[src_sto].usage) {
+				tar_sto = src_sto;
 				gamestate = 1;
 			}
 			break;
@@ -416,66 +419,66 @@ bool step()
 	else if (gamestate == 1) {
 		switch (key) {
 			case sk_Window:
-				target_storage = SCORING + 0;
+				tar_sto = SCORING + 0;
 			break;
 
 			case sk_Zoom:
-				target_storage = SCORING + 1;
+				tar_sto = SCORING + 1;
 			break;
 
 			case sk_Trace:
-				target_storage = SCORING + 2;
+				tar_sto = SCORING + 2;
 			break;
 
 			case sk_Graph:
-				target_storage = SCORING + 3;
+				tar_sto = SCORING + 3;
 			break;
 
 			case sk_1:
-				target_storage = COLUM + 0;
+				tar_sto = COLUM + 0;
 			break;
 
 			case sk_2:
-				target_storage = COLUM + 1;
+				tar_sto = COLUM + 1;
 			break;
 
 			case sk_3:
-				target_storage = COLUM + 2;
+				tar_sto = COLUM + 2;
 			break;
 
 			case sk_4:
-				target_storage = COLUM + 3;
+				tar_sto = COLUM + 3;
 			break;
 
 			case sk_5:
-				target_storage = COLUM + 4;
+				tar_sto = COLUM + 4;
 			break;
 
 			case sk_6:
-				target_storage = COLUM + 5;
+				tar_sto = COLUM + 5;
 			break;
 
 			case sk_7:
-				target_storage = COLUM + 6;
+				tar_sto = COLUM + 6;
 			break;
 
 			case sk_Right:
 				do {
-					++target_storage;
-					if (target_storage > 12)
-						target_storage %= 13;
-					if (target_storage != 0 && target_storage != 1)
+					++tar_sto;
+					if (tar_sto > 12)
+						tar_sto %= 13;
+					if (tar_sto != 0 && tar_sto != 1)
 						break;
 				} while (true);
 			break;
 
 			case sk_Left:
 				do {
-					if (target_storage == 0)
-						target_storage = 12;
+					if (tar_sto == 0)
+						tar_sto = 12;
 					else
-						--target_storage;
-					if (target_storage != 0 && target_storage != 1)
+						--tar_sto;
+					if (tar_sto != 0 && tar_sto != 1)
 						break;
 				} while (true);
 			break;
@@ -485,31 +488,31 @@ bool step()
 				if (valid_target) {
 					do {
 						cs_add_card(
-							&storages[target_storage],
+							&storages[tar_sto],
 							as_faceup(cs_take_card(
-								&storages[source_storage],
-								source_index
+								&storages[src_sto],
+								src_index
 							))
 						);
-					} while (storages[source_storage].usage > source_index);
-					if (storages[source_storage].usage > 0)
-						set_faceup(storages[source_storage].data[source_index - 1]);
+					} while (storages[src_sto].usage > src_index);
+					if (storages[src_sto].usage > 0)
+						set_faceup(storages[src_sto].data[src_index - 1]);
 				}
 				gamestate = 0;
-				if (target_storage >= COLUM && target_storage <= COLUM + 7)
-					source_storage = target_storage;
-				source_index = storages[source_storage].usage - 1;
-				target_storage = 0;
+				if (tar_sto >= COLUM && tar_sto <= COLUM + 7)
+					src_sto = tar_sto;
+				src_index = storages[src_sto].usage - 1;
+				tar_sto = 0;
 			break;
 		}
 	}
 	if (
-		target_storage < COLUM || target_storage > SCORING + 3
-		|| target_storage == source_storage
+		tar_sto < COLUM || tar_sto > SCORING + 3
+		|| tar_sto == src_sto
 	) {
 		valid_target = false;
 	} else {
-		switch (target_storage) {
+		switch (tar_sto) {
 			case COLUM + 0:
 			case COLUM + 1:
 			case COLUM + 2:
@@ -518,19 +521,19 @@ bool step()
 			case COLUM + 5:
 			case COLUM + 6:
 				// if top card number is +1 and suit is compatable
-				dbg_printf("%d\n", (top_card(target_storage) & CARD_VALUE_MASK));
+				dbg_printf("%d\n", (top_card(tar_sto) & CARD_VALUE_MASK));
 				if ( // kings on blank spaces
-					(storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_K
-					&& (storages[target_storage].usage == 0)
+					(storages[src_sto].data[src_index] & CARD_VALUE_MASK) == CARD_K
+					&& (storages[tar_sto].usage == 0)
 				) {
 					valid_target = true;
 				} else if (
 					(
-						(top_card(target_storage) & CARD_VALUE_MASK) // top target card
-						== (storages[source_storage].data[source_index] & CARD_VALUE_MASK) + (1 << 2) // == top source + 1
+						(top_card(tar_sto) & CARD_VALUE_MASK) // top target card
+						== (storages[src_sto].data[src_index] & CARD_VALUE_MASK) + (1 << 2) // == top source + 1
 					) && ( // opposite color suit
-						(top_card(target_storage) & CARD_SUIT_MASK) != (storages[source_storage].data[source_index] & CARD_SUIT_MASK)
-						&& (top_card(target_storage) & CARD_SUIT_MASK) != pair_suit(storages[source_storage].data[source_index] & CARD_SUIT_MASK)
+						(top_card(tar_sto) & CARD_SUIT_MASK) != (storages[src_sto].data[src_index] & CARD_SUIT_MASK)
+						&& (top_card(tar_sto) & CARD_SUIT_MASK) != pair_suit(storages[src_sto].data[src_index] & CARD_SUIT_MASK)
 					)
 				) {
 					valid_target = true;
@@ -546,15 +549,15 @@ bool step()
 			case SCORING + 3:
 				if (
 					( // correct suit
-						(storages[source_storage].data[source_index] & CARD_SUIT_MASK) == target_storage - SCORING
+						(storages[src_sto].data[src_index] & CARD_SUIT_MASK) == tar_sto - SCORING
 					) && (
 						(
-							storages[target_storage].usage == 0 // target empty
-							&& ((storages[source_storage].data[source_index] & CARD_VALUE_MASK) == CARD_A) // source is ace
+							storages[tar_sto].usage == 0 // target empty
+							&& ((storages[src_sto].data[src_index] & CARD_VALUE_MASK) == CARD_A) // source is ace
 						) || ( // target used and source == target + 1
-							storages[target_storage].usage > 0 // target has cards
-							&& (storages[source_storage].data[source_index] & CARD_VALUE_MASK) // source card && value
-								== (top_card(target_storage) & CARD_VALUE_MASK) + (1 << 2) // == target + 1
+							storages[tar_sto].usage > 0 // target has cards
+							&& (storages[src_sto].data[src_index] & CARD_VALUE_MASK) // source card && value
+								== (top_card(tar_sto) & CARD_VALUE_MASK) + (1 << 2) // == target + 1
 						)
 					)
 				) {
@@ -575,14 +578,22 @@ bool step()
 int drawCard(Card card, int x, int y, bool highlight) {
 	// facedown
 	if ((card & CARD_FACING_MASK) == CARD_FACEDOWN) {
-		gfx_TransparentSprite(bard_back, x, y);
+		gfx_TransparentSprite(bard_backv2, x, y);
 	}
 	else {
-		gfx_TransparentSprite(blank_card, x, y);
+		switch (card & CARD_VALUE_MASK) {
+			case CARD_K:
+			gfx_TransparentSprite(king, x, y);
+			break;
+
+			default:
+			gfx_TransparentSprite(blank_cardv2, x, y);
+		}
+
 		int glif1_x = x + 2;
-		int glif1_y = y + 2;
-		int glif2_x = x + 40 - 2 - 8;
-		int glif2_y = y + 56 - 10 - 2;
+		int glif1_y = y + 5;
+		int glif2_x = x + CARD_WIDTH - 2 - 8;
+		int glif2_y = y + CARD_HEIGHT - 10 - 5;
 		gpfx_monoMaskSprite(
 			*(gfx_vbuffer + glif1_y) + glif1_x,
 			(10 << 8) + (2 + (card & CARD_SUIT_MASK)),
@@ -599,7 +610,6 @@ int drawCard(Card card, int x, int y, bool highlight) {
 		u8 value = (card & CARD_VALUE_MASK) >> 2;
 		u8 sum = (value*(value+1)) / 2;
 		if (value < 10) {
-			//dbg_printf("card value: %d", value);
 			for (u8 i = 0; i <= value; ++i) {
 				gpfx_monoMaskSprite(
 					*(gfx_vbuffer + y + glif_locations_y[sum + i]) + x + glif_locations_x[sum + i],
@@ -608,7 +618,18 @@ int drawCard(Card card, int x, int y, bool highlight) {
 				);
 			}
 		}
-		
+		else if (value < 13) {
+			gpfx_monoMaskSprite(
+				*(gfx_vbuffer + y + 5) + x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH,
+				height_color,
+				glif
+			);
+			gpfx_monoMaskSprite_flipped(
+				*(gfx_vbuffer + y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5) + x + 1,
+				height_color,
+				glif
+			);
+		}
 	}
 	// box to highlight selected card
 	if (highlight) {
@@ -624,7 +645,7 @@ void draw()
 	gfx_ZeroScreen();
 	// playfield
 	for (u8 colum = 0; colum < 7; ++colum) {
-		if (COLUM + colum == target_storage) {
+		if (COLUM + colum == tar_sto) {
 			if (valid_target)
 				gfx_SetColor(COLOR_VALID_SELECTION);
 			else
@@ -635,7 +656,7 @@ void draw()
 			drawCard(
 				storages[COLUM + colum].data[j],
 				colum * 46 + 2, j * 13 + 60,
-				(COLUM + colum) == source_storage && j == source_index
+				(COLUM + colum) == src_sto && j == src_index
 			);
 		}
 	}
@@ -646,7 +667,7 @@ void draw()
 		drawCard(
 			storages[DECK].data[storages[DECK].usage + i - num_to_draw],
 			2 + i * 16, 2,
-			DECK == source_storage && (storages[DECK].usage + i - num_to_draw) == source_index
+			DECK == src_sto && (storages[DECK].usage + i - num_to_draw) == src_index
 		);
 	}
 	// draw the discard pile
@@ -655,28 +676,28 @@ void draw()
 		drawCard(
 			storages[DISCARD].data[storages[DISCARD].usage + i - num_to_draw],
 			80 + i * 16, 2,
-			DISCARD == source_storage && (storages[DISCARD].usage + i - num_to_draw) == source_index
+			DISCARD == src_sto && (storages[DISCARD].usage + i - num_to_draw) == src_index
 		);
 	}
 	// draw the scoring piles
 	for (u8 i = 0; i < 4; ++i) {
-		if (SCORING + i == target_storage) {
+		if (SCORING + i == tar_sto) {
 			if (valid_target)
 				gfx_SetColor(COLOR_VALID_SELECTION);
 			else
 				gfx_SetColor(COLOR_INVALID_SELECTION);
-			gfx_Rectangle_NoClip(150 + i * 42, 0, 40, 61);
+			gfx_Rectangle_NoClip(150 + i * 42, 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 		}
 		if (storages[SCORING + i].usage > 0) {
 			drawCard(
 				top_card(SCORING + i),
-				150 + i * 42, 2,
-				SCORING + i == source_storage && storages[SCORING + i].usage - 1 == source_index
+				150 + i * (CARD_WIDTH + 4), 2,
+				SCORING + i == src_sto && storages[SCORING + i].usage - 1 == src_index
 			);
 		}
 		else {
 			gpfx_monoMaskSprite(
-			*(gfx_vbuffer + 24 + 2) + 16 + 150 + i * 42,
+			*(gfx_vbuffer + CARD_HEIGHT/2 - 4) + 150 + CARD_WIDTH/2 - 4 + 1 + i * (CARD_WIDTH + 4),
 			(7 << 8) + (5),
 			data + 130 + 7 * (i)
 		);

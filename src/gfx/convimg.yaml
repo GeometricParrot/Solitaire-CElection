@@ -17,8 +17,9 @@ converts:
     palette: global_palette
     transparent-color-index: 0
     images:
-      - blank_card.png
-      - bard_back.png
+      - blank_cardv2.png
+      - bard_backv2.png
+      - king.png
 
 outputs:
   - type: c
