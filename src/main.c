@@ -5,10 +5,7 @@
 #include "gfx/gfx.h"
 #include "gpfx.h"
 #include "bit_sprites.h"
-
-#include <debug.h>
-
-#include <string.h>
+#include "card_storage.h"
 
 #define COLOR_BACKGROUND 0
 #define COLOR_TRANSPARENT 1
@@ -16,41 +13,15 @@
 #define COLOR_INVALID_SELECTION 7
 #define COLOR_WHITE 8
 
-#define CARD_SUIT_MASK 0b11
-#define CARD_SPADES 0
-#define CARD_HEARTS 1
-#define CARD_DIAMONDS 2
-#define CARD_CLUBS 3
-#define CARD_VALUE_MASK 0b1111 << 2
-#define CARD_A 0 << 2
-#define CARD_2 1 << 2
-#define CARD_3 2 << 2
-#define CARD_4 3 << 2
-#define CARD_5 4 << 2
-#define CARD_6 5 << 2
-#define CARD_7 6 << 2
-#define CARD_8 7 << 2
-#define CARD_9 8 << 2
-#define CARD_10 9 << 2
-#define CARD_J 10 << 2
-#define CARD_Q 11 << 2
-#define CARD_K 12 << 2
-#define CARD_FACING_MASK 0b1 << 6
-#define CARD_FACEUP 0
-#define CARD_FACEDOWN 0b1 << 6
-#define CARD_INVALID 255
-
-#define CARD_WIDTH 39
-#define CARD_HEIGHT 55
-
 #define DECK 0
 #define DISCARD 1
 #define COLUM 2
 #define SCORING 9
 
-#define GAME_STATE_SELECT_SOURCE = 0
-#define GAME_STATE_SELECT_TARGET = 1
-
+#define GAME_STATE_SELECT_SOURCE 0
+#define GAME_STATE_SELECT_TARGET 1
+#define GAME_STATE_MAIN_MENU 2
+#define GAME_STATE_END_SCREEN 3
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -63,21 +34,12 @@
 
 #define top_card(index) storages[index].data[storages[index].usage - 1]
 
-
 typedef uint8_t u8;
 typedef int8_t i8;
 typedef unsigned int u24;
 typedef int i24;
-typedef u8 Card;
 
-typedef struct {
-	u8 capacity;
-	u8 usage;
-	Card* data;
-} CardStorage;
-
-
-u8 gamestate = 0;
+u8 gamestate = GAME_STATE_MAIN_MENU;
 u8 src_sto = 0;
 u8 src_index = 0;
 u8 tar_sto = 0;
@@ -99,92 +61,13 @@ CardStorage storages[] = {
 	{0, 0, 0},
 };
 
-
 bool step();
 void draw();
 int init_gamestate();
 
-
-u24 terriblerand() {
-	static u24 state = 0b100011011110111111001100;
-	state += 0b101111100110101100001111;
-	state ^= 0b110000101111100101000011;
-	state += 0b111100110100001001111110;
-	state ^= 0b011000101011101010111111;
-	return state;
-}
-
-int cs_resize(CardStorage* cs, u8 new_capacity) {
-	if (new_capacity < cs->usage) {
-		dbg_printf("Error in cs_resize(), new capacity < usage.\n");
-		return 1;
-	}
-	Card* temp_pointer = malloc(sizeof(Card) * new_capacity);
-	if (!temp_pointer)
-		return 1;
-	memmove(temp_pointer, cs->data, sizeof(Card) * cs->usage);
-	free(cs->data);
-	cs->data = temp_pointer;
-	cs->capacity = new_capacity;
-	return 0;
-}
-
-int cs_add_card(CardStorage* cs, Card new_card) {
-	if (cs->usage + 1 > cs->capacity || new_card == CARD_INVALID) {
-		dbg_printf("Error in cs_add_card(), card invalid or card won't fit.\n");
-		return 1;
-	}
-	cs->data[cs->usage] = new_card;
-	++cs->usage;
-	return 0;
-}
-
-Card cs_take_card(CardStorage* cs, u8 index) {
-	if (index >= cs->usage) {
-		dbg_printf("Error in cs_take_card(), index (%d) out of bounds.\n", index);
-		return CARD_INVALID;
-	}
-	Card out = cs->data[index];
-	memmove(&cs->data[index], &cs->data[index + 1], sizeof(Card) * ((cs->usage - 1) - index));
-	--cs->usage;
-	return out;
-}
-
-Card cs_take_top_card(CardStorage* cs) {
-	if (cs->usage == 0) {
-		dbg_printf("Error in cs_take_top_card(), no cards to take.\n");
-		return CARD_INVALID;
-	}
-	--cs->usage;
-	return cs->data[cs->usage];
-}
-
-int cs_shuffle(CardStorage* cs) {
-	if (cs->usage < 1) {
-		dbg_printf("Error in cs_shuffle(), no cards to shuffle.\n");
-		return 1;
-	}
-	for (u8 i = 0; i < 100; ++i) {
-		u24 rand1 = terriblerand() % cs->usage;
-		u24 rand2 = terriblerand() % cs->usage;
-		Card temp = cs->data[rand1];
-		cs->data[rand1] = cs->data[rand2];
-		cs->data[rand2] = temp;
-	}
-	return 0;
-}
-
-void cs_debug_print(CardStorage* cs) {
-	dbg_printf("starage capacity: %d\n", (u24)cs->capacity);
-	dbg_printf("starage usage: %d\n", (u24)cs->usage);
-	for (u8 i = 0; i < cs->usage; ++i) {
-		dbg_printf("card: %d\n", (u24)cs->data[i]);
-	}
-}
-
 int main(void)
 {
-	init_gamestate();
+	//init_gamestate();
 
 	gfx_Begin();
 	gfx_SetPalette(global_palette, sizeof_global_palette, 0);
@@ -298,7 +181,7 @@ bool step()
 
 		case sk_Del:
 		case sk_Alpha:
-			gamestate = 0;
+			gamestate = GAME_STATE_SELECT_SOURCE;
 			tar_sto = 0;
 			while (storages[src_sto].usage == 0) {
 				
@@ -311,7 +194,13 @@ bool step()
 	}
 
 	// select source mode
-	if (gamestate == 0) {
+	if (gamestate == GAME_STATE_MAIN_MENU) {
+		if (key) {
+			init_gamestate();
+			gamestate = GAME_STATE_SELECT_SOURCE;
+			rand();
+		}
+	} else if (gamestate == GAME_STATE_SELECT_SOURCE) {
 		switch (key) {
 			case sk_Window:
 				if (storages[SCORING + 0].usage > 0)
@@ -411,12 +300,12 @@ bool step()
 			case sk_Enter:
 			if (src_index < storages[src_sto].usage) {
 				tar_sto = src_sto;
-				gamestate = 1;
+				gamestate = GAME_STATE_SELECT_TARGET;
 			}
 			break;
 		}
 	}
-	else if (gamestate == 1) {
+	else if (gamestate == GAME_STATE_SELECT_TARGET) {
 		switch (key) {
 			case sk_Window:
 				tar_sto = SCORING + 0;
@@ -498,7 +387,7 @@ bool step()
 					if (storages[src_sto].usage > 0)
 						set_faceup(storages[src_sto].data[src_index - 1]);
 				}
-				gamestate = 0;
+				gamestate = GAME_STATE_SELECT_SOURCE;
 				if (tar_sto >= COLUM && tar_sto <= COLUM + 7)
 					src_sto = tar_sto;
 				src_index = storages[src_sto].usage - 1;
@@ -639,68 +528,86 @@ int drawCard(Card card, int x, int y, bool highlight) {
 	return 0;
 }
 
+
+void drawShadowText(const char* str, u8 x, u8 y, u8 scale) {
+	gfx_SetTextScale(scale, scale);
+	gfx_SetTextXY(x + scale, y + scale);
+	gfx_SetTextFGColor(2);
+	gfx_PrintString(str);
+	
+	gfx_SetTextXY(x, y);
+	gfx_SetTextFGColor(COLOR_WHITE);
+	gfx_PrintString(str);
+}
+
 // draw graphics
 void draw()
 {
-	gfx_ZeroScreen();
-	// playfield
-	for (u8 colum = 0; colum < 7; ++colum) {
-		if (COLUM + colum == tar_sto) {
-			if (valid_target)
-				gfx_SetColor(COLOR_VALID_SELECTION);
-			else
-				gfx_SetColor(COLOR_INVALID_SELECTION);
-			gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 13, 1));
+	if (gamestate == GAME_STATE_MAIN_MENU) {
+		gfx_ZeroScreen();
+		drawShadowText("Solitare CE", 50, 50, 3);
+		drawShadowText("Press any key to start", 10, 100, 2);
+	} else if (gamestate == GAME_STATE_SELECT_SOURCE || gamestate == GAME_STATE_SELECT_TARGET) {
+		gfx_ZeroScreen();
+		// playfield
+		for (u8 colum = 0; colum < 7; ++colum) {
+			if (COLUM + colum == tar_sto) {
+				if (valid_target)
+					gfx_SetColor(COLOR_VALID_SELECTION);
+				else
+					gfx_SetColor(COLOR_INVALID_SELECTION);
+				gfx_Rectangle(colum * 46, 58, 44, 64 + max((storages[COLUM + colum].usage - 1) * 13, 1));
+			}
+			for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
+				drawCard(
+					storages[COLUM + colum].data[j],
+					colum * 46 + 2, j * 13 + 60,
+					(COLUM + colum) == src_sto && j == src_index
+				);
+			}
 		}
-		for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
-			drawCard(
-				storages[COLUM + colum].data[j],
-				colum * 46 + 2, j * 13 + 60,
-				(COLUM + colum) == src_sto && j == src_index
-			);
-		}
-	}
 
-	// draw the deck
-	u8 num_to_draw = min(3, storages[DECK].usage);
-	for (u8 i = 0; i < num_to_draw; ++i) {
-		drawCard(
-			storages[DECK].data[storages[DECK].usage + i - num_to_draw],
-			2 + i * 16, 2,
-			DECK == src_sto && (storages[DECK].usage + i - num_to_draw) == src_index
-		);
-	}
-	// draw the discard pile
-	num_to_draw = min(3, storages[DISCARD].usage);
-	for (u8 i = 0; i < num_to_draw; ++i) {
-		drawCard(
-			storages[DISCARD].data[storages[DISCARD].usage + i - num_to_draw],
-			80 + i * 16, 2,
-			DISCARD == src_sto && (storages[DISCARD].usage + i - num_to_draw) == src_index
-		);
-	}
-	// draw the scoring piles
-	for (u8 i = 0; i < 4; ++i) {
-		if (SCORING + i == tar_sto) {
-			if (valid_target)
-				gfx_SetColor(COLOR_VALID_SELECTION);
-			else
-				gfx_SetColor(COLOR_INVALID_SELECTION);
-			gfx_Rectangle_NoClip(150 + i * 42, 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
-		}
-		if (storages[SCORING + i].usage > 0) {
+		// draw the deck
+		u8 num_to_draw = min(3, storages[DECK].usage);
+		for (u8 i = 0; i < num_to_draw; ++i) {
 			drawCard(
-				top_card(SCORING + i),
-				150 + i * (CARD_WIDTH + 4), 2,
-				SCORING + i == src_sto && storages[SCORING + i].usage - 1 == src_index
+				storages[DECK].data[storages[DECK].usage + i - num_to_draw],
+				2 + i * 16, 2,
+				DECK == src_sto && (storages[DECK].usage + i - num_to_draw) == src_index
 			);
 		}
-		else {
-			gpfx_monoMaskSprite(
-			*(gfx_vbuffer + CARD_HEIGHT/2 - 4) + 150 + CARD_WIDTH/2 - 4 + 1 + i * (CARD_WIDTH + 4),
-			(7 << 8) + (5),
-			data + 130 + 7 * (i)
-		);
+		// draw the discard pile
+		num_to_draw = min(3, storages[DISCARD].usage);
+		for (u8 i = 0; i < num_to_draw; ++i) {
+			drawCard(
+				storages[DISCARD].data[storages[DISCARD].usage + i - num_to_draw],
+				80 + i * 16, 2,
+				DISCARD == src_sto && (storages[DISCARD].usage + i - num_to_draw) == src_index
+			);
+		}
+		// draw the scoring piles
+		for (u8 i = 0; i < 4; ++i) {
+			if (SCORING + i == tar_sto) {
+				if (valid_target)
+					gfx_SetColor(COLOR_VALID_SELECTION);
+				else
+					gfx_SetColor(COLOR_INVALID_SELECTION);
+				gfx_Rectangle_NoClip(150 + i * 42, 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
+			}
+			if (storages[SCORING + i].usage > 0) {
+				drawCard(
+					top_card(SCORING + i),
+					150 + i * (CARD_WIDTH + 4), 2,
+					SCORING + i == src_sto && storages[SCORING + i].usage - 1 == src_index
+				);
+			}
+			else {
+				gpfx_monoMaskSprite(
+				*(gfx_vbuffer + CARD_HEIGHT/2 - 4) + 150 + CARD_WIDTH/2 - 4 + 1 + i * (CARD_WIDTH + 4),
+				(7 << 8) + (5),
+				data + 130 + 7 * (i)
+			);
+			}
 		}
 	}
 }
