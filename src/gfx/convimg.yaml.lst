@@ -6,4 +6,8 @@ bard_backv2.h
 bard_backv2.c
 king.h
 king.c
+queen.h
+queen.c
+jack.h
+jack.c
 gfx.h
