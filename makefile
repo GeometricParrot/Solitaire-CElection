@@ -2,11 +2,11 @@
 # Makefile Options
 # ----------------------------
 
-NAME = DEMO
+NAME = SOLITRCE
 ICON = icon.png
-DESCRIPTION = "CE C Toolchain Demo"
+DESCRIPTION = "Colection of solitaire games"
 COMPRESSED = NO
-ARCHIVED = NO
+ARCHIVED = YES
 
 CFLAGS = -Wall -Wextra -Oz
 CXXFLAGS = -Wall -Wextra -Oz
