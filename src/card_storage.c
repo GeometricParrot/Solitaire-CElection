@@ -5,6 +5,10 @@ int cs_resize(CardStorage* cs, uint8_t new_capacity) {
 		dbg_printf("Error in cs_resize(), new capacity < usage.\n");
 		return 1;
 	}
+	if (new_capacity == cs->capacity) {
+		dbg_printf("maybe unexpected in cs_resize(), new capacity = capacity.\n");
+		return 0;
+	}
 	Card* temp_pointer = malloc(sizeof(Card) * new_capacity);
 	if (!temp_pointer)
 		return 1;
@@ -13,6 +17,14 @@ int cs_resize(CardStorage* cs, uint8_t new_capacity) {
 	cs->data = temp_pointer;
 	cs->capacity = new_capacity;
 	return 0;
+}
+
+void cs_reset(CardStorage* cs) {
+	cs->capacity = 0;
+	cs->usage = 0;
+	if (cs->data)
+		free(cs->data);
+	cs->data = NULL;
 }
 
 int cs_add_card(CardStorage* cs, Card new_card) {

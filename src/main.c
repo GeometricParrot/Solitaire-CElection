@@ -20,17 +20,17 @@
 #define SCORING 9
 
 
-enum GAME_STATE{
+enum GAME_STATE {
 	GAME_STATE_NULL,
 	GAME_STATE_SELECT_SOURCE,
 	GAME_STATE_SELECT_TARGET,
+	GAME_STATE_WON,
 };
 
 enum PROGRAM_STATE {
 	PROGRAM_STATE_NULL,
 	PROGRAM_STATE_MAIN_MENU,
 	PROGRAM_STATE_KLONDIKE_IN_GAME,
-	PROGRAM_STATE_END_SCREEN,
 };
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
@@ -57,6 +57,7 @@ u8 tar_sto = 0;
 clock_t game_start_time = 0;
 int move_count = 0;
 bool valid_target = false;
+bool klondike_run_auto_win = false;
 CardStorage storages[] = {
 	{0, 0, 0},
 	{0, 0, 0},
@@ -113,7 +114,7 @@ int init_klondike() {
 
 	// initial deal
 	for (u8 i = 0; i < 7; ++i) {
-		cs_resize(&storages[COLUM + i], 15);
+		cs_resize(&storages[COLUM + i], i + 13);
 	}
 	for (u8 i = 0; i < 7; ++i) {
 		for (u8 j = i; j < 7; ++j) {
@@ -127,6 +128,11 @@ int init_klondike() {
 			cs_add_card(&storages[COLUM + j], card);
 		}
 	}
+	cs_reset(&storages[SCORING]);
+	cs_reset(&storages[SCORING + 1]);
+	cs_reset(&storages[SCORING + 2]);
+	cs_reset(&storages[SCORING + 3]);
+
 	cs_resize(&storages[SCORING], 13);
 	cs_resize(&storages[SCORING + 1], 13);
 	cs_resize(&storages[SCORING + 2], 13);
@@ -278,19 +284,91 @@ int move_cards(CardStorage* source, CardStorage* target, u8 source_index) {
 	return 0;
 }
 
-void klondike_step(uint8_t key) {
-	switch (key) {
-		case sk_Del:
-		case sk_Alpha:
-			game_state = GAME_STATE_SELECT_SOURCE;
-			tar_sto = 0;
-			while (!is_valid_klondike_src_index(src_index)) {
-				++src_sto;
-				if (src_sto > 12)
-					src_sto %= 13;
-				src_index = storages[src_sto].usage - 1;
+bool klondike_is_auto_winnable() {
+	if (storages[DECK].usage != 0)
+		return false;
+	if (storages[DISCARD].usage > 1)
+		return false;
+	for (u8 colum = COLUM; colum < COLUM + 7; ++colum) {
+		for (u8 card_index = 0; card_index < storages[colum].usage; ++ card_index) {
+			if ((storages[colum].data[card_index] & CARD_FACING_MASK) == CARD_FACEDOWN) {
+				return false;
 			}
-		break;
+		}
+	}
+	return true;
+}
+
+bool klondike_is_won() {
+	if (storages[DECK].usage != 0)
+		return false;
+	if (storages[DISCARD].usage != 0)
+		return false;
+	for (u8 colum = COLUM; colum < COLUM + 7; ++colum) {
+		if (storages[colum].usage != 0)
+			return false;
+	}
+	for (u8 scoring = SCORING; scoring < SCORING + 4; ++scoring) {
+		if (top_card(scoring) != (CARD_K & (scoring - SCORING))) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void klondike_step(uint8_t key) {
+	if (klondike_is_won()) {
+		game_state = GAME_STATE_WON;
+		dbg_printf("Won the game\n");
+		klondike_run_auto_win = false;
+		return;
+	} else if (klondike_run_auto_win) {
+		for (u8 source = DISCARD; source < COLUM + 7; ++source) {
+			if (storages[source].usage > 0) {
+				for (u8 target = SCORING; target < SCORING + 4; ++target) {
+					if (
+						( // correct suit
+							(top_card(source) & CARD_SUIT_MASK) == target - SCORING
+						) && (
+							(
+								storages[target].usage == 0 // target empty
+								&& ((top_card(source) & CARD_VALUE_MASK) == CARD_A) // source is ace
+							) || ( // target used and source == target + 1
+								storages[target].usage > 0 // target has cards
+								&& (top_card(source) & CARD_VALUE_MASK) // source card && value
+									== (top_card(target) & CARD_VALUE_MASK) + (1 << 2) // == target + 1
+							)
+						)
+					) {
+						dbg_printf("Moving card\n");
+						move_cards(&storages[source], &storages[target], storages[source].usage - 1);
+						return;
+					}
+				}
+			}
+		}
+		dbg_printf("Something went wrong with the auto win\n");
+		klondike_run_auto_win = false;
+	}
+	
+	if (game_state == GAME_STATE_SELECT_SOURCE || game_state == GAME_STATE_SELECT_TARGET) {
+		switch (key) {
+			case sk_Math:
+				if (klondike_is_auto_winnable())
+					klondike_run_auto_win = true;
+			break;
+			case sk_Del:
+			case sk_Alpha:
+				game_state = GAME_STATE_SELECT_SOURCE;
+				tar_sto = 0;
+				while (!is_valid_klondike_src_index(src_index)) {
+					++src_sto;
+					if (src_sto > 12)
+						src_sto %= 13;
+					src_index = storages[src_sto].usage - 1;
+				}
+			break;
+		}
 	}
 	
 	switch (game_state) {
@@ -534,6 +612,13 @@ void klondike_step(uint8_t key) {
 				break;
 			}
 		} break;
+
+		case GAME_STATE_WON: {
+			if (key) {
+				game_state = GAME_STATE_NULL;
+				program_state = PROGRAM_STATE_MAIN_MENU;
+			}
+		} break;
 	}
 }
 
@@ -567,24 +652,24 @@ bool step()
 int drawCard(Card card, int x, int y, bool highlight) {
 	// facedown
 	if ((card & CARD_FACING_MASK) == CARD_FACEDOWN) {
-		gfx_TransparentSprite(bard_backv2, x, y);
+		gfx_TransparentSprite_NoClip(bard_backv2, x, y);
 	}
 	else {
 		switch (card & CARD_VALUE_MASK) {
 			case CARD_K:
-				gfx_TransparentSprite(king, x, y);
+				gfx_TransparentSprite_NoClip(king, x, y);
 			break;
 
 			case CARD_Q:
-				gfx_TransparentSprite(queen, x, y);
+				gfx_TransparentSprite_NoClip(queen, x, y);
 			break;
 
 			case CARD_J:
-				gfx_TransparentSprite(jack, x, y);
+				gfx_TransparentSprite_NoClip(jack, x, y);
 			break;
 
 			default:
-			gfx_TransparentSprite(blank_cardv2, x, y);
+			gfx_TransparentSprite_NoClip(blank_cardv2, x, y);
 		}
 
 		int glif1_x = x + 2;
@@ -631,7 +716,7 @@ int drawCard(Card card, int x, int y, bool highlight) {
 	// box to highlight selected card
 	if (highlight) {
 		gfx_SetColor(COLOR_UNKNOWN_SELECTION);
-		gfx_Rectangle(x - 2, y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
+		gfx_Rectangle_NoClip(x - 2, y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 	}
 	return 0;
 }
@@ -648,19 +733,25 @@ void drawShadowText(const char* str, u8 x, u8 y, u8 scale) {
 void drawKlondike() {
 	gfx_ZeroScreen();
 	// playfield
-	for (u8 colum = 0; colum < 7; ++colum) {
-		if (COLUM + colum == tar_sto) {
+	for (u8 colum = COLUM; colum < COLUM + 7; ++colum) {
+		u8 coverd_card_height = min((165 - CARD_HEIGHT) / (storages[colum].usage - 1), 15);
+		for (u8 card_index = 0; card_index < storages[colum].usage; ++card_index) {
+			drawCard(
+				storages[colum].data[card_index],
+				(colum - COLUM) * (CARD_WIDTH + 6) + 4, card_index * coverd_card_height + 60,
+				colum == src_sto && card_index == src_index
+			);
+		}
+		if (colum == tar_sto) {
 			if (valid_target)
 				gfx_SetColor(COLOR_VALID_SELECTION);
 			else
 				gfx_SetColor(COLOR_INVALID_SELECTION);
-			gfx_Rectangle(colum * 46, 58, CARD_WIDTH + 4, CARD_HEIGHT + 4 + max((storages[COLUM + colum].usage - 1) * 13, 1));
-		}
-		for (u8 j = 0; j < storages[COLUM + colum].usage; ++j) {
-			drawCard(
-				storages[COLUM + colum].data[j],
-				colum * 46 + 2, j * 13 + 60,
-				(COLUM + colum) == src_sto && j == src_index
+			gfx_Rectangle_NoClip(
+				(colum - COLUM) * (CARD_WIDTH + 6) + 2,
+				58,
+				CARD_WIDTH + 4,
+				CARD_HEIGHT + 4 + max((storages[colum].usage - 1) * coverd_card_height, 1)
 			);
 		}
 	}
@@ -684,34 +775,34 @@ void drawKlondike() {
 		);
 	}
 	// draw the scoring piles
-	for (u8 i = 0; i < 4; ++i) {
-		if (SCORING + i == tar_sto) {
-			if (valid_target)
-				gfx_SetColor(COLOR_VALID_SELECTION);
-			else
-				gfx_SetColor(COLOR_INVALID_SELECTION);
-			gfx_Rectangle_NoClip(150 + i * 42, 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
-		}
-		if (storages[SCORING + i].usage > 0) {
+	for (u8 i = SCORING; i < SCORING + 4; ++i) {
+		if (storages[i].usage > 0) {
 			drawCard(
-				top_card(SCORING + i),
-				150 + i * (CARD_WIDTH + 4), 2,
-				SCORING + i == src_sto && storages[SCORING + i].usage - 1 == src_index
+				top_card(i),
+				150 + (i - SCORING) * (CARD_WIDTH + 4), 2,
+				i == src_sto && storages[i].usage - 1 == src_index
 			);
 		}
 		else {
 			gpfx_monoMaskSprite(
-			*(gfx_vbuffer + CARD_HEIGHT/2 - 4) + 150 + CARD_WIDTH/2 - 4 + 1 + i * (CARD_WIDTH + 4),
+			*(gfx_vbuffer + CARD_HEIGHT/2 - 4) + 150 + CARD_WIDTH/2 - 4 + 1 + (i - SCORING) * (CARD_WIDTH + 4),
 			(7 << 8) + (5),
-			data + 130 + 7 * (i)
-		);
+			data + 130 + 7 * (i - SCORING)
+			);
+		}
+		if (i == tar_sto) {
+			if (valid_target)
+				gfx_SetColor(COLOR_VALID_SELECTION);
+			else
+				gfx_SetColor(COLOR_INVALID_SELECTION);
+			gfx_Rectangle_NoClip(150 - 2 + (i - SCORING) * (CARD_WIDTH + 4), 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 		}
 	}
 	gfx_SetTextScale(2, 2);
-	gfx_PrintStringXY("Game time: ", 5, 200);
+	gfx_PrintStringXY("Time: ", 5, 224);
 	gfx_PrintInt((clock() - game_start_time) / 32768, 1);
 
-	gfx_PrintStringXY("Moves: ", 5, 220);
+	gfx_PrintStringXY("Moves: ", 160, 224);
 	gfx_PrintInt(move_count, 1);
 }
 
@@ -740,6 +831,13 @@ void draw()
 				case GAME_STATE_SELECT_SOURCE:
 				case GAME_STATE_SELECT_TARGET:
 					drawKlondike();
+				break;
+
+				case GAME_STATE_WON:
+					gfx_SetTextScale(4, 4);
+					drawShadowText("You Win!", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("You Win!")/2, 20, 4);
+					gfx_SetTextScale(3, 3);
+					drawShadowText("Press any key", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("Press any key")/2, 100, 3);
 				break;
 			}
 		break;

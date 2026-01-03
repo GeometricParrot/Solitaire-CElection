@@ -45,6 +45,7 @@ typedef struct {
 } CardStorage;
 
 int cs_resize(CardStorage* cs, uint8_t new_capacity);
+void cs_reset(CardStorage* cs);
 int cs_add_card(CardStorage* cs, Card new_card);
 Card cs_take_card(CardStorage* cs, uint8_t index);
 Card cs_take_top_card(CardStorage* cs);
