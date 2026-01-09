@@ -9,7 +9,7 @@
 #define GLIF_SMALL_WIDTH 6
 #define GLIF_SMALL_HEIGHT 7
 
-uint8_t data[] = {
+uint8_t const data[] = {
 	// A
 	0b00111100,
 	0b00111100,
@@ -188,7 +188,7 @@ uint8_t data[] = {
 };
 
 
-uint8_t glif_locations_x[] = {
+uint8_t const glif_locations_x[] = {
 	// A
 	CARD_WIDTH/2 - GLIF_SMALL_WIDTH/2,
 	// 2
@@ -256,7 +256,7 @@ uint8_t glif_locations_x[] = {
 	CARD_WIDTH/2 - GLIF_SMALL_WIDTH/2 + 6,
 };
 
-uint8_t glif_locations_y[] = {
+uint8_t const glif_locations_y[] = {
 	// A
 	CARD_HEIGHT/2 - GLIF_SMALL_HEIGHT/2,
 	// 2

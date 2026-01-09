@@ -43,6 +43,7 @@ enum PROGRAM_STATE {
 #define bound(a, b, c) (max(b, min(a, c)))
 
 #define top_card(index) g_storages[index].data[g_storages[index].usage - 1]
+#define buffer_position(x, y) (*(gfx_vbuffer + y) + x)
 
 int g_program_state = PROGRAM_STATE_MAIN_MENU;
 int g_game_state = GAME_STATE_NULL;
@@ -444,12 +445,12 @@ void klondike_step(uint8_t key) {
 				case sk_Alpha:
 					g_game_state = GAME_STATE_SELECT_SOURCE;
 					set_target_colum(0);
-					while (!is_valid_klondike_g_src_index(g_src_index)) {
-						++g_src_sto;
-						if (g_src_sto >= CARD_STORAGE_NUMBER)
-							g_src_sto %= CARD_STORAGE_NUMBER;
-						g_src_index = g_storages[g_src_sto].usage - 1;
-					}
+					//while (!is_valid_klondike_g_src_index(g_src_index)) {
+					//	set_source_colum(g_src_sto + 1);
+					//	if (g_src_sto >= CARD_STORAGE_NUMBER)
+					//		set_source_colum(g_src_sto - CARD_STORAGE_NUMBER);
+					//	g_src_index = g_storages[g_src_sto].usage - 1;
+					//}
 				break;
 				case sk_Window:
 					set_target_colum(SCORING + 0);
@@ -499,7 +500,7 @@ void klondike_step(uint8_t key) {
 					do {
 						set_target_colum(g_tar_sto + 1);
 						if (g_tar_sto >= CARD_STORAGE_NUMBER)
-							set_target_colum(g_tar_sto % CARD_STORAGE_NUMBER);
+							set_target_colum(g_tar_sto - CARD_STORAGE_NUMBER);
 						if (g_tar_sto != 0 && g_tar_sto != 1)
 							break;
 					} while (true);
@@ -641,43 +642,41 @@ int drawCard(struct Card card, int x, int y, bool highlight) {
 			gfx_TransparentSprite_NoClip(blank_cardv2, x, y);
 		}
 
-		int glif1_x = x + 2;
-		int glif1_y = y + 5;
-		int glif2_x = x + CARD_WIDTH - 2 - 8;
-		int glif2_y = y + CARD_HEIGHT - 10 - 5;
-		uint8_t value = card.value - 1;
+		uint8_t* const glif1 = buffer_position(x + 2, y + 5);
+		uint8_t* const glif2 = buffer_position(x + CARD_WIDTH - 2 - 8, y + CARD_HEIGHT - 10 - 5);
+		uint8_t const value = card.value - 1;
 
 		// number glifs
 		gpfx_monoMaskSprite(
-			*(gfx_vbuffer + glif1_y) + glif1_x,
+			glif1,
 			(10 << 8) + (2 + card_suit(card)),
 			data + 10 * value
 		);
 		gpfx_monoMaskSprite_flipped(
-			*(gfx_vbuffer + glif2_y) + glif2_x,
+			glif2,
 			(10 << 8) + (2 + card_suit(card)),
 			data + 10 * value
 		);
-		unsigned int height_color = (7 << 8) + (2 + card_suit(card));
-		void* glif = data + 130 + 7 * card_suit(card);
+		uint24_t height_color = (7 << 8) + (2 + card_suit(card));
+		const uint8_t* const glif = data + 130 + 7 * card_suit(card);
 		if (value < 10) {
-			uint8_t sum = (value*(value+1)) / 2;
+			uint8_t const sum = (value*(value+1)) / 2;
 			for (uint8_t i = 0; i <= value; ++i) {
 				gpfx_monoMaskSprite(
-					*(gfx_vbuffer + y + glif_locations_y[sum + i]) + x + glif_locations_x[sum + i],
+					buffer_position(x + glif_locations_x[sum + i], y + glif_locations_y[sum + i]),
 					height_color,
 					glif
 				);
 			}
 		}
-		else if (value < 13) {
+		else {
 			gpfx_monoMaskSprite(
-				*(gfx_vbuffer + y + 5) + x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH,
+				buffer_position(x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH, y + 5),
 				height_color,
 				glif
 			);
 			gpfx_monoMaskSprite_flipped(
-				*(gfx_vbuffer + y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5) + x + 1,
+				buffer_position(x + 1, y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5),
 				height_color,
 				glif
 			);
@@ -730,10 +729,7 @@ void drawKlondike() {
 			);
 		}
 		if (g_tar_sto == DISCARD) {
-			if (g_valid_target)
-				gfx_SetColor(COLOR_VALID_SELECTION);
-			else
-				gfx_SetColor(COLOR_INVALID_SELECTION);
+			gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
 			gfx_Rectangle_NoClip(
 				78, 0,
 				CARD_WIDTH + 4 + num_to_draw * 12 - 12,
@@ -763,10 +759,7 @@ void drawKlondike() {
 				);
 			}
 			if (i == g_tar_sto) {
-				if (g_valid_target)
-					gfx_SetColor(COLOR_VALID_SELECTION);
-				else
-					gfx_SetColor(COLOR_INVALID_SELECTION);
+				gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
 				gfx_Rectangle_NoClip(150 - 2 + (i - SCORING) * (CARD_WIDTH + 4), 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 			}
 		}
@@ -776,31 +769,28 @@ void drawKlondike() {
 	for (uint8_t colum = COLUM; colum < COLUM + 7; ++colum) {
 		if (g_storages[colum].requires_redraw ) {
 			g_storages[colum].requires_redraw = false;
-			uint8_t coverd_card_height = min((160 - CARD_HEIGHT) / (g_storages[colum].usage - 1), 15);
+			uint8_t coverd_card_height = min((160 - 4 - CARD_HEIGHT) / (g_storages[colum].usage - 1), 15);
 			gfx_SetColor(0);
 			gfx_FillRectangle_NoClip(
-					(colum - COLUM) * (CARD_WIDTH + 6) + 2,
+					(colum - COLUM) * (CARD_WIDTH + 6),
 					CARD_HEIGHT + 4 + 1,
 					CARD_WIDTH + 4,
-					164
+					160
 			);
 			for (uint8_t card_index = 0; card_index < g_storages[colum].usage; ++card_index) {
 				drawCard(
 					g_storages[colum].data[card_index],
-					(colum - COLUM) * (CARD_WIDTH + 6) + 4, card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2,
+					(colum - COLUM) * (CARD_WIDTH + 6) + 2, card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2,
 					colum == g_src_sto && card_index == g_src_index
 				);
 			}
 			if (colum == g_tar_sto) {
-				if (g_valid_target)
-					gfx_SetColor(COLOR_VALID_SELECTION);
-				else
-					gfx_SetColor(COLOR_INVALID_SELECTION);
+				gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
 				gfx_Rectangle_NoClip(
-					(colum - COLUM) * (CARD_WIDTH + 6) + 2,
+					(colum - COLUM) * (CARD_WIDTH + 6),
 					CARD_HEIGHT + 4 + 1,
 					CARD_WIDTH + 4,
-					CARD_HEIGHT + 4 + (g_storages[colum].usage - 1) * coverd_card_height
+					CARD_HEIGHT + 4 + (max(g_storages[colum].usage, 1) - 1) * coverd_card_height
 				);
 			}
 		}
