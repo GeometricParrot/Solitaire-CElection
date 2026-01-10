@@ -34,7 +34,7 @@ void cs_debug_print(CardStorage* cs) {
 	cs->requires_redraw = true;
 	dbg_printf("starage usage: %d\n", (int)cs->usage);
 	for (uint8_t i = 0; i < cs->usage; ++i) {
-		dbg_printf("card: %d of %d\n", cs->data[i].value, cs->data[i].flags);
+		card_dbg_print(cs->data[i]);
 	}
 }
 
@@ -98,7 +98,10 @@ bool cs_move_card(
 	bool was_success = true;
 	struct Card card;
 	was_success &= cs_take_card(source_storage, source_index, &card);
+	card.life_remaining = 8;
+	card_dbg_print(card);
 	was_success &= cs_insert_card(target_storage, card, target_index);
+	card_dbg_print(target_storage->data[target_index]);
 	return was_success;
 }
 
@@ -178,6 +181,7 @@ bool cs_move_top_card_to_top(
 	bool was_success = true;
 	struct Card card;
 	was_success &= cs_take_top_card(source_storage, &card);
+	card.life_remaining = 8;
 	was_success &= cs_insert_to_top_card(target_storage, card);
 	return was_success;
 }

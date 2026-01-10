@@ -11,6 +11,9 @@ struct Card {
 	// F: facing
 	// 0000'0FSS
 	uint8_t flags;
+	uint8_t life_remaining;
+	uint8_t source_y;
+	uint24_t source_x;
 };
 
 enum CARD_SUIT {
@@ -53,5 +56,7 @@ enum CARD_VALUE {
 void card_set_equal(struct Card* tar, struct Card src);
 
 uint8_t card_opposite_suit(struct Card card);
+
+void card_dbg_print(struct Card card);
 
 #endif
