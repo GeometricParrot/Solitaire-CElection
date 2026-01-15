@@ -3,9 +3,6 @@
 
 #define CARD_STORAGE_CAPACITY 52
 
-#define CARD_WIDTH 39
-#define CARD_HEIGHT 55
-
 #include <ti/vars.h>
 #include <stdbool.h>
 #include "card.h"

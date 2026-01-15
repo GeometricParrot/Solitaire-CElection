@@ -32,7 +32,7 @@ bool aq_has_room(struct AnimationQueue* aq) {
 	}
 	return false;
 }
-#include "gfx/gfx.h"
+
 void aq_render_and_animate_cards(struct AnimationQueue* aq) {
 	// animate and get background sprites
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
@@ -48,10 +48,7 @@ void aq_render_and_animate_cards(struct AnimationQueue* aq) {
 			temp.target_x = aq->queue[i].current_x;
 			temp.target_y = aq->queue[i].current_y;
 			card_dbg_print(temp);
-			drawCard(
-				&temp,
-				false
-			);
+			gpfx_drawCard(&temp);
 			--aq->queue[i].card.life_remaining;
 			if (aq->queue[i].card.life_remaining == 0) {
 				dbg_printf("animate() redraw storage %d\n", (int)aq->queue[i].storage);

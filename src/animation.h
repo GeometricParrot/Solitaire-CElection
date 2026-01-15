@@ -4,9 +4,9 @@
 #include <ti/vars.h>
 #include "card_storage.h"
 #include "graphx.h"
+#include "gpfx.h"
 
 struct Card;
-int drawCard(struct Card* card, bool highlight);
 
 struct Animation {
 	CardStorage* storage;

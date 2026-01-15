@@ -11,12 +11,7 @@
 #include "card.h"
 #include "animation.h"
 
-#define COLOR_BACKGROUND 0
-#define COLOR_TRANSPARENT 1
-#define COLOR_VALID_SELECTION 6
-#define COLOR_UNKNOWN_SELECTION 7
-#define COLOR_INVALID_SELECTION 8
-#define COLOR_WHITE 9
+
 
 #define DECK 0
 #define DISCARD 1
@@ -44,7 +39,7 @@ enum PROGRAM_STATE {
 #define bound(a, b, c) (max(b, min(a, c)))
 
 #define top_card(index) g_storages[index].data[g_storages[index].usage - 1]
-#define buffer_position(x, y) (*(gfx_vbuffer + y) + x)
+
 
 int g_program_state = PROGRAM_STATE_MAIN_MENU;
 int g_game_state = GAME_STATE_NULL;
@@ -60,8 +55,6 @@ clock_t g_start_of_frame = 0;
 CardStorage g_storages[CARD_STORAGE_NUMBER];
 
 struct AnimationQueue g_animation_queue;
-
-int drawCard(struct Card* card, bool highlight);
 
 bool step();
 void draw();
@@ -636,104 +629,6 @@ bool step()
     return false;
 }
 
-int drawCard(struct Card* card, bool highlight) {
-	// facedown
-	if (card_facing((*card)) == CARD_FACING_DOWN) {
-		gfx_TransparentSprite_NoClip(bard_backv2, card->target_x, card->target_y);
-	}
-	else {
-		switch (card->value) {
-			case CARD_VALUE_KING:
-				gfx_TransparentSprite_NoClip(king, card->target_x, card->target_y);
-			break;
-
-			case CARD_VALUE_QUEEN:
-				gfx_TransparentSprite_NoClip(queen, card->target_x, card->target_y);
-			break;
-
-			case CARD_VALUE_JACK:
-				gfx_TransparentSprite_NoClip(jack, card->target_x, card->target_y);
-			break;
-
-			default:
-			gfx_TransparentSprite_NoClip(blank_cardv2, card->target_x, card->target_y);
-		}
-
-		uint8_t* const glif1 = buffer_position(card->target_x + 2, card->target_y + 5);
-		uint8_t* const glif2 = buffer_position(card->target_x + CARD_WIDTH - 2 - 8, card->target_y + CARD_HEIGHT - 10 - 5);
-		uint8_t const value = card->value - 1;
-
-		// number glifs
-		gpfx_monoMaskSprite(
-			glif1,
-			(10 << 8) + (2 + card_suit((*card))),
-			data + 10 * value
-		);
-		gpfx_monoMaskSprite_flipped(
-			glif2,
-			(10 << 8) + (2 + card_suit((*card))),
-			data + 10 * value
-		);
-		uint24_t height_color = (7 << 8) + (2 + card_suit((*card)));
-		const uint8_t* const glif = data + 130 + 7 * card_suit((*card));
-		if (value < 10) {
-			uint8_t const sum = (value*(value+1)) / 2;
-			for (uint8_t i = 0; i <= value; ++i) {
-				gpfx_monoMaskSprite(
-					buffer_position(card->target_x + glif_locations_x[sum + i], card->target_y + glif_locations_y[sum + i]),
-					height_color,
-					glif
-				);
-			}
-		}
-		else {
-			gpfx_monoMaskSprite(
-				buffer_position(card->target_x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH, card->target_y + 5),
-				height_color,
-				glif
-			);
-			gpfx_monoMaskSprite_flipped(
-				buffer_position(card->target_x + 1, card->target_y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5),
-				height_color,
-				glif
-			);
-		}
-	}
-	// box to highlight selected card
-	if (highlight) {
-		gfx_SetColor(COLOR_UNKNOWN_SELECTION);
-		gfx_Rectangle_NoClip(card->target_x - 2, card->target_y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
-	}
-	return 0;
-}
-
-bool draw_maybe_animated_card(struct Card* card, uint24_t x, uint8_t y, bool highlight, CardStorage* cs) {
-	if ((x != card->target_x || y != card->target_y) && card->life_remaining > 0) {
-		uint24_t old_x = card->target_x;
-		uint8_t old_y = card->target_y;
-		card->target_x = x;
-		card->target_y = y;
-		aq_submit_animation(&g_animation_queue, card, cs, old_x, old_y);
-		return true;
-	}
-	if (card->life_remaining > 0) {
-		--card->life_remaining;
-	}
-	card->target_x = x;
-	card->target_y = y;
-	drawCard(card, highlight);
-	return false;
-}
-
-void drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale) {
-	gfx_SetTextScale(scale, scale);
-	gfx_SetTextFGColor(5);
-	gfx_PrintStringXY(str, x + scale, y + scale);
-	
-	gfx_SetTextFGColor(COLOR_WHITE);
-	gfx_PrintStringXY(str, x, y);
-}
-
 void klondike_clear_screen() {
 	// clear the screen areas that need redrawn
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
@@ -787,10 +682,10 @@ void drawKlondike() {
 			struct Card* card = &g_storages[DECK].data[g_storages[DECK].usage + i - num_to_draw];
 			card->target_x = 2 + i * 12;
 			card->target_y = 2;
-			drawCard(
-				card,
-				DECK == g_src_sto && (g_storages[DECK].usage + i - num_to_draw) == g_src_index
-			);
+			gpfx_drawCard(card);
+			if (DECK == g_src_sto && (g_storages[DECK].usage + i - num_to_draw) == g_src_index) {
+				gpfx_draw_highlight(card);
+			}
 		}
 	}
 
@@ -803,10 +698,10 @@ void drawKlondike() {
 			struct Card* card = &g_storages[DISCARD].data[g_storages[DISCARD].usage + i - num_to_draw];
 			card->target_x = 80 + i * 12;
 			card->target_y = 2;
-			drawCard(
-				card,
-				DISCARD == g_src_sto && (g_storages[DISCARD].usage + i - num_to_draw) == g_src_index
-			);
+			gpfx_drawCard(card);
+			if (DISCARD == g_src_sto && (g_storages[DISCARD].usage + i - num_to_draw) == g_src_index) {
+				gpfx_draw_highlight(card);
+			}
 		}
 		if (g_tar_sto == DISCARD) {
 			gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
@@ -827,7 +722,11 @@ void drawKlondike() {
 				const uint24_t x = 150 + (i - SCORING) * (CARD_WIDTH + 4);
 				const uint8_t y = 2;
 				struct Card* card = &top_card(i);
-				draw_maybe_animated_card(card, x, y, i == g_src_sto && g_storages[i].usage - 1 == g_src_index, &g_storages[i]);
+				if (gpfx_draw_maybe_animated_card(&g_animation_queue, card, x, y, &g_storages[i]) && g_storages[i].usage > 1) {
+					gpfx_drawCard(&g_storages[i].data[g_storages[i].usage - 2]);
+				} else if (i == g_src_sto && g_storages[i].usage - 1 == g_src_index) {
+					gpfx_draw_highlight(card);
+				}
 			}
 			else {
 				gpfx_monoMaskSprite(
@@ -853,7 +752,10 @@ void drawKlondike() {
 				struct Card* card = &g_storages[colum].data[card_index];
 				uint24_t x = (colum - COLUM) * (CARD_WIDTH + 6) + 2;
 				uint8_t y = card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2;
-				draw_maybe_animated_card(card, x, y, colum == g_src_sto && card_index == g_src_index, &g_storages[colum]);
+				gpfx_draw_maybe_animated_card(&g_animation_queue, card, x, y, &g_storages[colum]);
+				if (colum == g_src_sto && card_index == g_src_index) {
+					gpfx_draw_highlight(card);
+				}
 			}
 			if (colum == g_tar_sto) {
 				gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
@@ -881,60 +783,15 @@ void drawKlondike() {
 void klondike_draw_game_state_won() {
 	gfx_ZeroScreen();
 	gfx_SetTextScale(4, 4);
-	drawShadowText("You Win!", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("You Win!")/2, 20, 4);
+	gpfx_drawShadowText("You Win!", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("You Win!")/2, 20, 4);
 	gfx_SetTextScale(3, 3);
-	drawShadowText("Press any key", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("Press any key")/2, 100, 3);
+	gpfx_drawShadowText("Press any key", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("Press any key")/2, 100, 3);
 	gfx_BlitBuffer();
 }
 
 void klondike_draw_game_state_autowin() {
 	klondike_clear_screen();
-	// draw the scoring piles
-	for (uint8_t i = SCORING; i < SCORING + 4; ++i) {
-		if (g_storages[i].usage > 0 && g_storages[i].redraw_frames > 0) {
-			dbg_printf("Drawing Scoring %d\n", i);
-			--g_storages[i].redraw_frames;
-			for (uint8_t j = 0; j < g_storages[i].usage; ++j) {
-				struct Card* card = &top_card(i);
-				const uint24_t x = 150 + (i - SCORING) * (CARD_WIDTH + 4);
-				const uint8_t y = 2;
-				if (card->life_remaining != 0 && false) {
-					//submit_animation(card, x, y, i);
-					--card->life_remaining;
-				} else {
-					card->target_x = x;
-					card->target_y = y;
-					drawCard(
-						card,
-						false
-					);
-				}
-			}
-		}
-	}
-	for (uint8_t colum = COLUM; colum < COLUM + 7; ++colum) {
-		if (g_storages[colum].redraw_frames > 0 ) {
-			dbg_printf("Drawing Colum %d\n", colum);
-			--g_storages[colum].redraw_frames;
-			uint8_t coverd_card_height = min((160 - 4 - CARD_HEIGHT) / (g_storages[colum].usage - 1), 15);
-			for (uint8_t card_index = 0; card_index < g_storages[colum].usage; ++card_index) {
-				struct Card* card = &g_storages[colum].data[card_index];
-				uint24_t x = (colum - COLUM) * (CARD_WIDTH + 6) + 2;
-				uint8_t y = card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2;
-				if (card->life_remaining != 0 && false) {
-					// submit
-					--card->life_remaining;
-				} else {
-					card->target_x = x;
-					card->target_y = y;
-					drawCard(
-						card,
-						colum == g_src_sto && card_index == g_src_index
-					);
-				}
-			}
-		}
-	}
+	
 	aq_render_and_animate_cards(&g_animation_queue);
 	gfx_BlitBuffer();
 }
@@ -943,12 +800,10 @@ void drawMainMenu() {
 	
 	gfx_ZeroScreen();
 	gfx_SetTextScale(4, 4);
-	drawShadowText("Solitaire", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("Solitaire")/2, 20, 4);
-	drawShadowText("CElection", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("CElection")/2, 60, 4);
-	drawShadowText("Press any key to start", 10, 150, 2);
+	gpfx_drawShadowText("Solitaire", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("Solitaire")/2, 20, 4);
+	gpfx_drawShadowText("CElection", GFX_LCD_WIDTH/2 - gfx_GetStringWidth("CElection")/2, 60, 4);
+	gpfx_drawShadowText("Press any key to start", 10, 150, 2);
 
-	//drawCard(CARD_SPADES | CARD_A, 30, 180, false);
-	//drawCard(CARD_HEARTS | CARD_K, GFX_LCD_WIDTH - 30 - CARD_WIDTH, 180, false);
 	gfx_SwapDraw();
 }
 

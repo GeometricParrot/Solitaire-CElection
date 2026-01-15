@@ -4,6 +4,9 @@
 #include <ti/vars.h>
 #include <stdbool.h>
 
+#define CARD_WIDTH 39
+#define CARD_HEIGHT 55
+
 struct Card {
 	uint8_t value;
 	// flags def:
