@@ -9,10 +9,12 @@
 #include <ti/vars.h>
 #include <stdbool.h>
 #include "card.h"
+struct Animation;
+struct AnimationQueue;
 
 typedef struct {
 	uint8_t usage;
-	bool requires_redraw;
+	uint8_t redraw_frames;
 	struct Card data[CARD_STORAGE_CAPACITY];
 } CardStorage;
 
@@ -31,14 +33,16 @@ bool cs_move_card(
 	CardStorage* source_storage,
 	CardStorage* target_storage,
 	uint8_t source_index,
-	uint8_t target_index
+	uint8_t target_index,
+	uint8_t lifetime
 );
 bool cs_move_cards(
 	CardStorage* source_storage,
 	CardStorage* target_storage,
 	uint8_t source_index,
 	uint8_t target_index,
-	uint8_t number
+	uint8_t number,
+	uint8_t lifetime
 );
 bool cs_move_top_card(
 	CardStorage* source_storage,
@@ -64,7 +68,8 @@ bool cs_move_to_top_cards(
 );
 bool cs_move_top_card_to_top(
 	CardStorage* source_storage,
-	CardStorage* target_storage
+	CardStorage* target_storage,
+	uint8_t lifetime
 );
 bool cs_move_top_cards_to_top(
 	CardStorage* source_storage,

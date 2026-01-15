@@ -9,6 +9,7 @@
 #include "bit_sprites.h"
 #include "card_storage.h"
 #include "card.h"
+#include "animation.h"
 
 #define COLOR_BACKGROUND 0
 #define COLOR_TRANSPARENT 1
@@ -58,50 +59,9 @@ clock_t g_start_of_frame = 0;
 #define CARD_STORAGE_NUMBER 13
 CardStorage g_storages[CARD_STORAGE_NUMBER];
 
-#define AQ_CAPACITY 1
-struct Animation {
-	uint8_t storage;
-	uint8_t y;
-	uint24_t x;
-	gfx_sprite_t* behind_sprite;
-	struct Card* card;
-};
+struct AnimationQueue g_animation_queue;
 
 int drawCard(struct Card* card, bool highlight);
-
-void animate(struct Animation* animation) {
-	animation->card->source_x = (animation->x + animation->card->source_x) / 2;
-	animation->card->source_y = (animation->y + animation->card->source_y) / 2;
-}
-struct Animation g_animation_queue;
-
-void submit_animation(struct Card* card, uint24_t x, uint8_t y, uint8_t sto_index) {
-	if (g_animation_queue.card == NULL) {
-		dbg_printf("submit_animation() called with life %d\n", card->life_remaining);
-		g_animation_queue.card = card;
-		g_animation_queue.x = x;
-		g_animation_queue.y = y;
-		g_animation_queue.storage = sto_index;
-	}
-}
-
-void render_and_animate_cards() {
-	if (g_animation_queue.card != NULL) {
-		dbg_printf("render_and_animate_cards()\n");
-		animate(&g_animation_queue);
-		gfx_GetSprite_NoClip(g_animation_queue.behind_sprite, g_animation_queue.card->source_x, g_animation_queue.card->source_y);
-		drawCard(
-			g_animation_queue.card,
-			false
-		);
-		--g_animation_queue.card->life_remaining;
-		if (g_animation_queue.card->life_remaining == 0) {
-			dbg_printf("animate() redraw storage %d\n", g_animation_queue.storage);
-			g_storages[g_animation_queue.storage].requires_redraw = true;
-			g_animation_queue.card = NULL;
-		}
-	}
-}
 
 bool step();
 void draw();
@@ -140,7 +100,7 @@ void std_deck_deal() {
 	for (uint8_t i = 0; i < 7; ++i) {
 		for (uint8_t j = i; j < 7; ++j) {
 			struct Card card;
-			card.life_remaining = 2;
+			card.life_remaining = 0;
 			cs_take_top_card(&g_storages[DECK], &card);
 			if (i == j) {
 				card_set_facing(card, CARD_FACING_UP);
@@ -162,18 +122,15 @@ void init_klondike() {
 	gfx_ZeroScreen();
 
 	for (uint8_t i = 0; i < CARD_STORAGE_NUMBER; ++i) {
-		g_storages[i].requires_redraw = true;
+		g_storages[i].redraw_frames = 1;
 	}
 
-	if (g_animation_queue.behind_sprite == NULL) {
-		g_animation_queue.behind_sprite = gfx_MallocSprite(CARD_WIDTH, CARD_HEIGHT);
-	}
-	g_animation_queue.card = NULL;
+	aq_init(&g_animation_queue);
 }
 
 void set_source_colum(uint8_t colum) {
-	g_storages[g_src_sto].requires_redraw = true;
-	g_storages[colum].requires_redraw = true;
+	if (g_storages[g_src_sto].redraw_frames == 0) g_storages[g_src_sto].redraw_frames = 1;
+	if (g_storages[colum].redraw_frames == 0) g_storages[colum].redraw_frames = 1;
 	g_src_sto = colum;
 	g_src_index = g_storages[g_src_sto].usage - 1;
 }
@@ -246,8 +203,8 @@ bool is_valid_klondike_g_tar_sto(uint8_t storage) {
 }
 
 void set_target_colum(uint8_t colum) {
-	g_storages[g_tar_sto].requires_redraw = true;
-	g_storages[colum].requires_redraw = true;
+	if (g_storages[g_tar_sto].redraw_frames == 0) g_storages[g_tar_sto].redraw_frames = 1;
+	if (g_storages[colum].redraw_frames == 0) g_storages[colum].redraw_frames = 1;
 	g_tar_sto = colum;
 	g_valid_target = is_valid_klondike_g_tar_sto(colum);
 }
@@ -336,22 +293,18 @@ void klondike_step(uint8_t key) {
 
 				case sk_Store:
 					if (g_storages[DECK].usage > 0) {
-						g_storages[DECK].requires_redraw = true;
-						g_storages[DISCARD].requires_redraw = true;
 						++g_move_count;
 						cs_debug_print(&g_storages[DISCARD]);
-						cs_move_top_card_to_top(&g_storages[DECK], &g_storages[DISCARD]);
+						cs_move_top_card_to_top(&g_storages[DECK], &g_storages[DISCARD], 8);
 						cs_debug_print(&g_storages[DISCARD]);
 						card_set_facing(top_card(DISCARD), CARD_FACING_UP);
 						set_source_colum(DISCARD);
 						g_src_index = g_storages[DISCARD].usage - 1;
 					}
 					else {
-						g_storages[DECK].requires_redraw = true;
-						g_storages[DISCARD].requires_redraw = true;
 						++g_move_count;
 						while (g_storages[DISCARD].usage > 0) {
-							cs_move_top_card_to_top(&g_storages[DISCARD], &g_storages[DECK]);
+							cs_move_top_card_to_top(&g_storages[DISCARD], &g_storages[DECK], 8);
 							card_set_facing(top_card(DECK), CARD_FACING_DOWN);
 						}
 						set_source_colum(COLUM);
@@ -445,14 +398,14 @@ void klondike_step(uint8_t key) {
 		
 				case sk_Down:
 				if (g_src_index < g_storages[g_src_sto].usage - 1 && (COLUM <= g_src_sto && g_src_sto < SCORING)) {
-					g_storages[g_src_sto].requires_redraw = true;
+					if (g_storages[g_src_sto].redraw_frames == 0) g_storages[g_src_sto].redraw_frames = 1;
 					++g_src_index;
 				}
 				break;
 		
 				case sk_Up:
 				if (g_src_index > 0 && (COLUM <= g_src_sto && g_src_sto < SCORING)) {
-					g_storages[g_src_sto].requires_redraw = true;
+					if (g_storages[g_src_sto].redraw_frames == 0) g_storages[g_src_sto].redraw_frames = 1;
 					--g_src_index;
 				}
 				break;
@@ -461,7 +414,7 @@ void klondike_step(uint8_t key) {
 					for (uint8_t i = SCORING; i < SCORING + 4; ++i) {
 						if (is_valid_klondike_g_tar_sto(i)) {
 							++g_move_count;
-							cs_move_cards(&g_storages[g_src_sto], &g_storages[i], g_src_index, g_storages[i].usage, 0);
+							cs_move_top_card_to_top(&g_storages[g_src_sto], &g_storages[i], 8);
 							if (g_storages[g_src_sto].usage > 0)
 								card_set_facing(g_storages[g_src_sto].data[g_src_index - 1], CARD_FACING_UP);
 							g_src_index = g_storages[g_src_sto].usage - 1;
@@ -492,12 +445,6 @@ void klondike_step(uint8_t key) {
 				case sk_Alpha:
 					g_game_state = GAME_STATE_SELECT_SOURCE;
 					set_target_colum(0);
-					//while (!is_valid_klondike_g_src_index(g_src_index)) {
-					//	set_source_colum(g_src_sto + 1);
-					//	if (g_src_sto >= CARD_STORAGE_NUMBER)
-					//		set_source_colum(g_src_sto - CARD_STORAGE_NUMBER);
-					//	g_src_index = g_storages[g_src_sto].usage - 1;
-					//}
 				break;
 				case sk_Window:
 					set_target_colum(SCORING + 0);
@@ -579,7 +526,7 @@ void klondike_step(uint8_t key) {
 						++g_move_count;
 						cs_move_cards(
 							&g_storages[g_src_sto], &g_storages[g_tar_sto],
-							g_src_index, g_storages[g_tar_sto].usage, 0
+							g_src_index, g_storages[g_tar_sto].usage, 0, 8
 						);
 						if (g_storages[g_src_sto].usage > 0)
 							card_set_facing(g_storages[g_src_sto].data[g_src_index - 1], CARD_FACING_UP);
@@ -594,7 +541,7 @@ void klondike_step(uint8_t key) {
 		} break;
 
 		case GAME_STATE_AUTOWIN: {
-			if (klondike_is_won() && g_animation_queue.card == NULL && false) {
+			if (klondike_is_won() && aq_has_room(&g_animation_queue)) {
 				g_game_state = GAME_STATE_WON;
 				dbg_printf("set g_game_state = GAME_STATE_WON\n");
 			} else {
@@ -615,7 +562,7 @@ void klondike_step(uint8_t key) {
 								)
 							) {
 								dbg_printf("Moving card for autowin\n");
-								cs_move_top_card_to_top(&g_storages[source], &g_storages[target]);
+								cs_move_top_card_to_top(&g_storages[source], &g_storages[target], 6);
 								return;
 							}
 						}
@@ -692,28 +639,28 @@ bool step()
 int drawCard(struct Card* card, bool highlight) {
 	// facedown
 	if (card_facing((*card)) == CARD_FACING_DOWN) {
-		gfx_TransparentSprite_NoClip(bard_backv2, card->source_x, card->source_y);
+		gfx_TransparentSprite_NoClip(bard_backv2, card->target_x, card->target_y);
 	}
 	else {
 		switch (card->value) {
 			case CARD_VALUE_KING:
-				gfx_TransparentSprite_NoClip(king, card->source_x, card->source_y);
+				gfx_TransparentSprite_NoClip(king, card->target_x, card->target_y);
 			break;
 
 			case CARD_VALUE_QUEEN:
-				gfx_TransparentSprite_NoClip(queen, card->source_x, card->source_y);
+				gfx_TransparentSprite_NoClip(queen, card->target_x, card->target_y);
 			break;
 
 			case CARD_VALUE_JACK:
-				gfx_TransparentSprite_NoClip(jack, card->source_x, card->source_y);
+				gfx_TransparentSprite_NoClip(jack, card->target_x, card->target_y);
 			break;
 
 			default:
-			gfx_TransparentSprite_NoClip(blank_cardv2, card->source_x, card->source_y);
+			gfx_TransparentSprite_NoClip(blank_cardv2, card->target_x, card->target_y);
 		}
 
-		uint8_t* const glif1 = buffer_position(card->source_x + 2, card->source_y + 5);
-		uint8_t* const glif2 = buffer_position(card->source_x + CARD_WIDTH - 2 - 8, card->source_y + CARD_HEIGHT - 10 - 5);
+		uint8_t* const glif1 = buffer_position(card->target_x + 2, card->target_y + 5);
+		uint8_t* const glif2 = buffer_position(card->target_x + CARD_WIDTH - 2 - 8, card->target_y + CARD_HEIGHT - 10 - 5);
 		uint8_t const value = card->value - 1;
 
 		// number glifs
@@ -733,7 +680,7 @@ int drawCard(struct Card* card, bool highlight) {
 			uint8_t const sum = (value*(value+1)) / 2;
 			for (uint8_t i = 0; i <= value; ++i) {
 				gpfx_monoMaskSprite(
-					buffer_position(card->source_x + glif_locations_x[sum + i], card->source_y + glif_locations_y[sum + i]),
+					buffer_position(card->target_x + glif_locations_x[sum + i], card->target_y + glif_locations_y[sum + i]),
 					height_color,
 					glif
 				);
@@ -741,12 +688,12 @@ int drawCard(struct Card* card, bool highlight) {
 		}
 		else {
 			gpfx_monoMaskSprite(
-				buffer_position(card->source_x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH, card->source_y + 5),
+				buffer_position(card->target_x + CARD_WIDTH - 3 - GLIF_SMALL_WIDTH, card->target_y + 5),
 				height_color,
 				glif
 			);
 			gpfx_monoMaskSprite_flipped(
-				buffer_position(card->source_x + 1, card->source_y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5),
+				buffer_position(card->target_x + 1, card->target_y + CARD_HEIGHT - GLIF_SMALL_HEIGHT - 5),
 				height_color,
 				glif
 			);
@@ -755,9 +702,27 @@ int drawCard(struct Card* card, bool highlight) {
 	// box to highlight selected card
 	if (highlight) {
 		gfx_SetColor(COLOR_UNKNOWN_SELECTION);
-		gfx_Rectangle_NoClip(card->source_x - 2, card->source_y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
+		gfx_Rectangle_NoClip(card->target_x - 2, card->target_y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 	}
 	return 0;
+}
+
+bool draw_maybe_animated_card(struct Card* card, uint24_t x, uint8_t y, bool highlight, CardStorage* cs) {
+	if ((x != card->target_x || y != card->target_y) && card->life_remaining > 0) {
+		uint24_t old_x = card->target_x;
+		uint8_t old_y = card->target_y;
+		card->target_x = x;
+		card->target_y = y;
+		aq_submit_animation(&g_animation_queue, card, cs, old_x, old_y);
+		return true;
+	}
+	if (card->life_remaining > 0) {
+		--card->life_remaining;
+	}
+	card->target_x = x;
+	card->target_y = y;
+	drawCard(card, highlight);
+	return false;
 }
 
 void drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale) {
@@ -771,31 +736,33 @@ void drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale) {
 
 void klondike_clear_screen() {
 	// clear the screen areas that need redrawn
-	if (g_animation_queue.card != NULL && g_animation_queue.card->life_remaining > 0) {
-		dbg_printf("clearing animated card beck with life %d\n", g_animation_queue.card->life_remaining);
-		gfx_Sprite_NoClip(
-			g_animation_queue.behind_sprite,
-			g_animation_queue.card->source_x,
-			g_animation_queue.card->source_y
-		);
+	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
+		if (card_is_valid(g_animation_queue.queue[i].card)) {
+			dbg_printf("clearing animated card beck with life %d\n", g_animation_queue.queue[i].card.life_remaining);
+			gfx_Sprite_NoClip(
+				g_animation_queue.queue[i].behind_sprite,
+				g_animation_queue.queue[i].current_x,
+				g_animation_queue.queue[i].current_y
+			);
+		}
 	}
 	gfx_SetColor(0);
-	if (g_storages[DECK].requires_redraw) { // deck
+	if (g_storages[DECK].redraw_frames > 0) { // deck
 		dbg_printf("Clearing Deck\n");
 		gfx_FillRectangle_NoClip(0, 0, CARD_WIDTH + 2*12 + 4, CARD_HEIGHT + 4);
 	}
-	if (g_storages[DISCARD].requires_redraw) { // discard
+	if (g_storages[DISCARD].redraw_frames > 0) { // discard
 		dbg_printf("Clearing Discard\n");
 		gfx_FillRectangle_NoClip(80 - 2, 0, CARD_WIDTH + 2*12 + 4, CARD_HEIGHT + 4);
 	}
 	for (uint8_t i = SCORING; i < SCORING + 4; ++i) { // scoring
-		if (g_storages[i].requires_redraw) {
+		if (g_storages[i].redraw_frames > 0) {
 			dbg_printf("Clearing Scoring %d\n", i);
 			gfx_FillRectangle_NoClip(150 + (i - SCORING) * (CARD_WIDTH + 4) - 2, 0, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 		}
 	}
 	for (uint8_t colum = COLUM; colum < COLUM + 7; ++colum) { // colum
-		if (g_storages[colum].requires_redraw ) {
+		if (g_storages[colum].redraw_frames > 0 ) {
 			dbg_printf("Clearing Colum %d\n", colum);
 			gfx_FillRectangle_NoClip(
 				(colum - COLUM) * (CARD_WIDTH + 6),
@@ -812,14 +779,14 @@ void drawKlondike() {
 	klondike_clear_screen();
 
 	// draw the deck
-	if (g_storages[DECK].requires_redraw) {
+	if (g_storages[DECK].redraw_frames > 0) {
 		dbg_printf("Drawing Deck\n");
-		g_storages[DECK].requires_redraw = false;
+		--g_storages[DECK].redraw_frames;
 		uint8_t num_to_draw = min(3, g_storages[DECK].usage);
 		for (uint8_t i = 0; i < num_to_draw; ++i) {
 			struct Card* card = &g_storages[DECK].data[g_storages[DECK].usage + i - num_to_draw];
-			card->source_x = 2 + i * 12;
-			card->source_y = 2;
+			card->target_x = 2 + i * 12;
+			card->target_y = 2;
 			drawCard(
 				card,
 				DECK == g_src_sto && (g_storages[DECK].usage + i - num_to_draw) == g_src_index
@@ -828,14 +795,14 @@ void drawKlondike() {
 	}
 
 	// draw the discard pile
-	if (g_storages[DISCARD].requires_redraw) {
+	if (g_storages[DISCARD].redraw_frames > 0) {
 		dbg_printf("Drawing Discard\n");
-		g_storages[DISCARD].requires_redraw = false;
+		--g_storages[DISCARD].redraw_frames;
 		uint8_t num_to_draw = min(3, g_storages[DISCARD].usage);
 		for (uint8_t i = 0; i < num_to_draw; ++i) {
 			struct Card* card = &g_storages[DISCARD].data[g_storages[DISCARD].usage + i - num_to_draw];
-			card->source_x = 80 + i * 12;
-			card->source_y = 2;
+			card->target_x = 80 + i * 12;
+			card->target_y = 2;
 			drawCard(
 				card,
 				DISCARD == g_src_sto && (g_storages[DISCARD].usage + i - num_to_draw) == g_src_index
@@ -853,33 +820,14 @@ void drawKlondike() {
 
 	// draw the scoring piles
 	for (uint8_t i = SCORING; i < SCORING + 4; ++i) {
-		if (g_storages[i].requires_redraw) {
+		if (g_storages[i].redraw_frames > 0) {
 			dbg_printf("Drawing scoring %d\n", i);
-			g_storages[i].requires_redraw = false;
+			--g_storages[i].redraw_frames;
 			if (g_storages[i].usage > 0) {
 				const uint24_t x = 150 + (i - SCORING) * (CARD_WIDTH + 4);
 				const uint8_t y = 2;
 				struct Card* card = &top_card(i);
-				if (card->life_remaining != 0) {
-					submit_animation(card, x, y, i);
-					if (g_storages[i].usage > 1) {
-						card = &g_storages[i].data[g_storages[i].usage - 2];
-						card_dbg_print(*card);
-						card->source_x = x;
-						card->source_y = y;
-						drawCard(
-							card,
-							false
-						);
-					}
-				} else {
-					card->source_x = x;
-					card->source_y = y;
-					drawCard(
-						card,
-						i == g_src_sto && g_storages[i].usage - 1 == g_src_index
-					);
-				}
+				draw_maybe_animated_card(card, x, y, i == g_src_sto && g_storages[i].usage - 1 == g_src_index, &g_storages[i]);
 			}
 			else {
 				gpfx_monoMaskSprite(
@@ -897,29 +845,15 @@ void drawKlondike() {
 
 	// playfield
 	for (uint8_t colum = COLUM; colum < COLUM + 7; ++colum) {
-		if (g_storages[colum].requires_redraw ) {
-			dbg_printf("Drawing Colum %d\n", colum);
-			g_storages[colum].requires_redraw = false;
+		if (g_storages[colum].redraw_frames > 0 ) {
+			--g_storages[colum].redraw_frames;
+			dbg_printf("Drawing Colum %d with %d frames left\n", colum, g_storages[colum].redraw_frames);
 			uint8_t coverd_card_height = min((160 - 4 - CARD_HEIGHT) / (g_storages[colum].usage - 1), 15);
 			for (uint8_t card_index = 0; card_index < g_storages[colum].usage; ++card_index) {
 				struct Card* card = &g_storages[colum].data[card_index];
 				uint24_t x = (colum - COLUM) * (CARD_WIDTH + 6) + 2;
 				uint8_t y = card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2;
-				if (card->life_remaining != 0) {
-					submit_animation(
-						card,
-						x,
-						y,
-						colum
-					);
-				} else {
-					card->source_x = x;
-					card->source_y = y;
-					drawCard(
-						card,
-						colum == g_src_sto && card_index == g_src_index
-					);
-				}
+				draw_maybe_animated_card(card, x, y, colum == g_src_sto && card_index == g_src_index, &g_storages[colum]);
 			}
 			if (colum == g_tar_sto) {
 				gfx_SetColor((g_valid_target) ? COLOR_VALID_SELECTION : COLOR_INVALID_SELECTION);
@@ -939,7 +873,7 @@ void drawKlondike() {
 	gfx_PrintStringXY("Moves: ", 160, 224);
 	gfx_PrintInt(g_move_count, 1);
 
-	render_and_animate_cards();
+	aq_render_and_animate_cards(&g_animation_queue);
 
 	gfx_BlitBuffer();
 }
@@ -957,18 +891,19 @@ void klondike_draw_game_state_autowin() {
 	klondike_clear_screen();
 	// draw the scoring piles
 	for (uint8_t i = SCORING; i < SCORING + 4; ++i) {
-		if (g_storages[i].usage > 0 && g_storages[i].requires_redraw) {
+		if (g_storages[i].usage > 0 && g_storages[i].redraw_frames > 0) {
 			dbg_printf("Drawing Scoring %d\n", i);
-			g_storages[i].requires_redraw = false;
+			--g_storages[i].redraw_frames;
 			for (uint8_t j = 0; j < g_storages[i].usage; ++j) {
 				struct Card* card = &top_card(i);
 				const uint24_t x = 150 + (i - SCORING) * (CARD_WIDTH + 4);
 				const uint8_t y = 2;
-				if (card->life_remaining != 0) {
-					submit_animation(card, x, y, i);
+				if (card->life_remaining != 0 && false) {
+					//submit_animation(card, x, y, i);
+					--card->life_remaining;
 				} else {
-					card->source_x = x;
-					card->source_y = y;
+					card->target_x = x;
+					card->target_y = y;
 					drawCard(
 						card,
 						false
@@ -978,24 +913,20 @@ void klondike_draw_game_state_autowin() {
 		}
 	}
 	for (uint8_t colum = COLUM; colum < COLUM + 7; ++colum) {
-		if (g_storages[colum].requires_redraw ) {
+		if (g_storages[colum].redraw_frames > 0 ) {
 			dbg_printf("Drawing Colum %d\n", colum);
-			g_storages[colum].requires_redraw = false;
+			--g_storages[colum].redraw_frames;
 			uint8_t coverd_card_height = min((160 - 4 - CARD_HEIGHT) / (g_storages[colum].usage - 1), 15);
 			for (uint8_t card_index = 0; card_index < g_storages[colum].usage; ++card_index) {
 				struct Card* card = &g_storages[colum].data[card_index];
 				uint24_t x = (colum - COLUM) * (CARD_WIDTH + 6) + 2;
 				uint8_t y = card_index * coverd_card_height + CARD_HEIGHT + 4 + 1 + 2;
-				if (card->life_remaining != 0) {
-					submit_animation(
-						card,
-						x,
-						y,
-						colum
-					);
+				if (card->life_remaining != 0 && false) {
+					// submit
+					--card->life_remaining;
 				} else {
-					card->source_x = x;
-					card->source_y = y;
+					card->target_x = x;
+					card->target_y = y;
 					drawCard(
 						card,
 						colum == g_src_sto && card_index == g_src_index
@@ -1004,7 +935,7 @@ void klondike_draw_game_state_autowin() {
 			}
 		}
 	}
-	render_and_animate_cards();
+	aq_render_and_animate_cards(&g_animation_queue);
 	gfx_BlitBuffer();
 }
 
@@ -1046,5 +977,5 @@ void draw()
 			}
 		break;
 	}
-	dbg_printf("step + frame took %d\n", (int)((clock() / (CLOCKS_PER_SEC/1000)) - g_start_of_frame));
+	//dbg_printf("step + frame took %d\n", (int)((clock() / (CLOCKS_PER_SEC/1000)) - g_start_of_frame));
 }
