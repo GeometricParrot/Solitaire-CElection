@@ -9,14 +9,14 @@ void animate(struct Animation* animation) {
 	animation->current_y = (animation->current_y + animation->card.target_y) / 2;
 }
 
-bool aq_submit_animation(struct AnimationQueue* aq, struct Card* card, CardStorage* sto, uint24_t x, uint8_t y) {
+bool aq_submit_animation(struct Animation* aq, struct Card* card, CardStorage* sto, uint24_t x, uint8_t y) {
 	dbg_printf("aq_submit_animation()\n");
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		if (card_is_invalid(aq->queue[i].card)) {
-			aq->queue[i].card = *card;
-			aq->queue[i].current_x = x;
-			aq->queue[i].current_y = y;
-			aq->queue[i].storage = sto;
+		if (card_is_invalid(aq[i].card)) {
+			aq[i].card = *card;
+			aq[i].current_x = x;
+			aq[i].current_y = y;
+			aq[i].storage = sto;
 			return true;
 		}
 	}
@@ -24,47 +24,47 @@ bool aq_submit_animation(struct AnimationQueue* aq, struct Card* card, CardStora
 	return false;
 }
 
-bool aq_has_room(struct AnimationQueue* aq) {
+bool aq_has_room(struct Animation* aq) {
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		if (card_is_valid(aq->queue[i].card)) {
+		if (card_is_valid(aq[i].card)) {
 			return true;
 		}
 	}
 	return false;
 }
 
-void aq_render_and_animate_cards(struct AnimationQueue* aq) {
+void aq_render_and_animate_cards(struct Animation* aq) {
 	// animate and get background sprites
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		if (card_is_valid(aq->queue[i].card)) {
+		if (card_is_valid(aq[i].card)) {
 			dbg_printf("aq_render_and_animate_cards()   drawing card\n");
-			animate(&aq->queue[i]);
-			gfx_GetSprite_NoClip(aq->queue[i].behind_sprite, aq->queue[i].current_x, aq->queue[i].current_y);
+			animate(&aq[i]);
+			gfx_GetSprite_NoClip(aq[i].behind_sprite, aq[i].current_x, aq[i].current_y);
 		}
 	}
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		if (card_is_valid(aq->queue[i].card)) {
-			struct Card temp = aq->queue[i].card;
-			temp.target_x = aq->queue[i].current_x;
-			temp.target_y = aq->queue[i].current_y;
+		if (card_is_valid(aq[i].card)) {
+			struct Card temp = aq[i].card;
+			temp.target_x = aq[i].current_x;
+			temp.target_y = aq[i].current_y;
 			card_dbg_print(temp);
 			gpfx_drawCard(&temp);
-			--aq->queue[i].card.life_remaining;
-			if (aq->queue[i].card.life_remaining == 0) {
-				dbg_printf("animate() redraw storage %d\n", (int)aq->queue[i].storage);
-				if (aq->queue[i].storage->redraw_frames == 0) aq->queue[i].storage->redraw_frames = 1;
-				aq->queue[i].card.value = CARD_VALUE_INVALID;
+			--aq[i].card.life_remaining;
+			if (aq[i].card.life_remaining == 0) {
+				dbg_printf("animate() redraw storage %d\n", (int)aq[i].storage);
+				if (aq[i].storage->redraw_frames == 0) aq[i].storage->redraw_frames = 1;
+				aq[i].card.value = CARD_VALUE_INVALID;
 			}
 		}
 	}
 }
 
-void aq_init(struct AnimationQueue* aq) {
+void aq_init(struct Animation* aq) {
 	dbg_printf("aq_init()\n");
 	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		aq->queue[i].card.value = CARD_VALUE_INVALID;
-		if (aq->queue[i].behind_sprite == NULL) {
-			aq->queue[i].behind_sprite = gfx_MallocSprite(CARD_WIDTH, CARD_HEIGHT);
+		aq[i].card.value = CARD_VALUE_INVALID;
+		if (aq[i].behind_sprite == NULL) {
+			aq[i].behind_sprite = gfx_MallocSprite(CARD_WIDTH, CARD_HEIGHT);
 		}
 	}
 }

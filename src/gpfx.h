@@ -5,7 +5,7 @@
 #include <ti/getcsc.h>
 #include "card_storage.h"
 struct Card;
-struct AnimationQueue;
+struct Animation;
 
 #define buffer_position(x, y) (*(gfx_vbuffer + y) + x)
 
@@ -20,7 +20,7 @@ int gpfx_drawCard(struct Card* card);
 
 void gpfx_draw_highlight(struct Card* card);
 // returns true if animated
-bool gpfx_draw_maybe_animated_card(struct AnimationQueue* aq, struct Card* card, uint24_t x, uint8_t y, CardStorage* cs);
+bool gpfx_draw_maybe_animated_card(struct Animation* aq, struct Card* card, uint24_t x, uint8_t y, CardStorage* cs);
 void gpfx_drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale);
 
 

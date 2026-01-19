@@ -78,7 +78,7 @@ void gpfx_draw_highlight(struct Card* card) {
 	gfx_Rectangle_NoClip(card->target_x - 2, card->target_y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
 }
 
-bool gpfx_draw_maybe_animated_card(struct AnimationQueue* aq, struct Card* card, uint24_t x, uint8_t y, CardStorage* cs) {
+bool gpfx_draw_maybe_animated_card(struct Animation* aq, struct Card* card, uint24_t x, uint8_t y, CardStorage* cs) {
 	uint24_t old_x = card->target_x;
 	uint8_t old_y = card->target_y;
 	card->target_x = x;

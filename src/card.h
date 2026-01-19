@@ -8,12 +8,12 @@
 #define CARD_HEIGHT 55
 
 struct Card {
-	uint8_t value;
 	// flags def:
 	// S: suit
 	// F: facing
 	// 0000'0FSS
 	uint8_t flags;
+	uint8_t value;
 	uint8_t life_remaining;
 	uint8_t target_y;
 	uint24_t target_x;
@@ -53,8 +53,8 @@ enum CARD_VALUE {
 #define card_is_valid(card) (card.value != CARD_VALUE_INVALID)
 #define card_is_invalid(card) (card.value == CARD_VALUE_INVALID)
 
-#define card_set_suit(card, suit) (card.flags = ((card.flags & 0b11111100) | suit))
-#define card_set_facing(card, facing) (card.flags = ((card.flags & 0b11111011) | facing << 2))
+#define card_set_suit(card, suit) (card.flags = ((card.flags & 0b11111100) | (suit)))
+#define card_set_facing(card, facing) (card.flags = ((card.flags & 0b11111011) | (facing) << 2))
 
 uint8_t card_opposite_suit(struct Card card);
 

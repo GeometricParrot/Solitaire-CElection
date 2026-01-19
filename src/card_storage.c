@@ -9,10 +9,9 @@
 #include "animation.h"
 
 void cs_zero(CardStorage* cs) {
-	if (cs->redraw_frames == 0) cs->redraw_frames = 1;
-	//cs->capacity = CARD_STORAGE_CAPACITY;
+	cs->redraw_frames = 1;
 	cs->usage = 0;
-	//cs->data = NULL;
+	memset(cs->data, 0, sizeof(struct Card) * CARD_STORAGE_CAPACITY);
 }
 
 bool cs_shuffle(CardStorage* cs) {
@@ -53,8 +52,12 @@ bool cs_insert_card(CardStorage* cs, struct Card new_card, uint8_t index) {
 }
 
 bool cs_insert_to_top_card(CardStorage* cs, struct Card new_card) {
-	if (cs->usage + 1 > CARD_STORAGE_CAPACITY || card_is_invalid(new_card)) {
-		dbg_printf("Error in cs_add_card(), card invalid or card won't fit.\n");
+	if (cs->usage + 1 > CARD_STORAGE_CAPACITY) {
+		dbg_printf("Error in cs_insert_to_top_card(), card won't fit.\n");
+		return false;
+	}
+	if (card_is_invalid(new_card)) {
+		dbg_printf("Error in cs_insert_to_top_card(), card invalid.\n");
 		return false;
 	}
 	if (cs->redraw_frames == 0) cs->redraw_frames = 1;
