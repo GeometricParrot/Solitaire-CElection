@@ -128,3 +128,7 @@ void state_perform_game_move(struct State* state) {
 	if (state->storages[state->selection_source].usage > 0)
 		card_set_facing(state->storages[state->selection_source].data[state->selection_source_index], CARD_FACING_UP);
 }
+
+void state_update_source_index_to_last(struct State* state) {
+	state->selection_source_index = state->storages[state->selection_source].usage - 1;
+}

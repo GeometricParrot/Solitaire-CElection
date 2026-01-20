@@ -14,6 +14,10 @@
 
 #define CARD_STORAGE_NUMBER 13
 
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define bound(a, b, c) (max(b, min(a, c)))
+
 enum PROGRAM_STATE {
 	PROGRAM_STATE_NULL,
 	PROGRAM_STATE_MAIN_MENU,
@@ -54,6 +58,7 @@ struct State {
 
 #define state_selection_source_card(state) ((state).storages[(state).selection_source].data[(state).selection_source_index])
 #define state_storage_top_card(state, index) (state).storages[index].data[(state).storages[index].usage - 1]
+#define state_storage_top_index(state, index) ((state).storages[index].usage - 1)
 
 
 void state_set_target_colum(struct State* state, uint8_t colum);
@@ -65,5 +70,7 @@ void state_storage_fill_with_cards(struct State* state, uint8_t storage);
 void state_perform_game_move(struct State* state);
 
 bool state_is_valid_selected_source_index(struct State* state, uint8_t index);
+
+void state_update_source_index_to_last(struct State* state);
 
 #endif
