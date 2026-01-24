@@ -9,23 +9,40 @@ void kd_init(struct State* state) {
 	gfx_ZeroScreen();
 
 	aq_init(state->animation_queue);
-	state_storage_fill_with_cards(state, DECK);
-	cs_shuffle(&state->storages[DECK]);
-	for (uint8_t i = 0; i < 7; ++i) {
-		for (uint8_t j = i; j < 7; ++j) {
-			struct Card card;
-			cs_take_top_card(&state->storages[DECK], &card);
-			if (i == j) {
+	if (state_is_sin_mode(*state)) {
+		dbg_printf("Starting game in sinner mode.\n");
+		for (uint8_t colum = COLUM; colum < COLUM + 4; ++colum) {
+			for (uint8_t value = CARD_VALUE_KING; value >= CARD_VALUE_ACE; --value) {
+				struct Card card;
+				card.target_x = 0;
+				card.target_y = 0;
+				card.life_remaining = 0;
+				card.value = value;
 				card_set_facing(card, CARD_FACING_UP);
+				card_set_suit(card, (colum - 2 + (2 * value)) & 0b11);
+				cs_insert_to_top_card(&state->storages[colum], card);
 			}
-			else {
-				card_set_facing(card, CARD_FACING_DOWN);
-			}
-			cs_insert_to_top_card(&state->storages[COLUM + j], card);
 		}
+	} else {
+		dbg_printf("Starting normal game.\n");
+		state_storage_fill_with_cards(state, DECK);
+		cs_shuffle(&state->storages[DECK]);
+		for (uint8_t i = 0; i < 7; ++i) {
+			for (uint8_t j = i; j < 7; ++j) {
+				struct Card card;
+				cs_take_top_card(&state->storages[DECK], &card);
+				if (i == j) {
+					card_set_facing(card, CARD_FACING_UP);
+				}
+				else {
+					card_set_facing(card, CARD_FACING_DOWN);
+				}
+				cs_insert_to_top_card(&state->storages[COLUM + j], card);
+			}
+	}
 	}
 	state_set_source_colum(state, COLUM);
-	state_update_source_index_to_last(state);
+	//state_update_source_index_to_last(state);
 }
 
 bool kd_is_autowinnable(struct State* state) {
@@ -70,28 +87,45 @@ void kd_step(struct State* state, uint8_t key) {
 				break;
 
 				case sk_Sin:
-					// TODO
-					//state_selection_source_card(state) ^= CARD_FACING_MASK;
+					state->flags ^= 0b00000010;
+					dbg_printf("Set sin mode to %d\n", (state->flags & 0b10) >> 1);
 				break;
 
 				case sk_Store:
 					if (state->storages[DECK].usage > 0) {
 						++state->game_move_count;
-						cs_debug_print(&state->storages[DISCARD]);
-						cs_move_top_card_to_top(&state->storages[DECK], &state->storages[DISCARD], 8);
-						cs_debug_print(&state->storages[DISCARD]);
+						if (state->storages[DISCARD].usage >= 1) {
+							state->storages[DISCARD].data[state->storages[DISCARD].usage - 1].life_remaining = 4;
+						}
+						if (state->storages[DISCARD].usage >= 2) {
+							state->storages[DISCARD].data[state->storages[DISCARD].usage - 2].life_remaining = 4;
+						}
+						cs_move_top_card_to_top(&state->storages[DECK], &state->storages[DISCARD], 6);
 						card_set_facing(state_storage_top_card(*state, DISCARD), CARD_FACING_UP);
 						state_set_source_colum(state, DISCARD);
 						state->selection_source_index = state->storages[DISCARD].usage - 1;
+						if (state->storages[DECK].usage >= 1) {
+							state->storages[DECK].data[state->storages[DECK].usage - 1].life_remaining = 6;
+						}
+						if (state->storages[DECK].usage >= 2) {
+							state->storages[DECK].data[state->storages[DECK].usage - 2].life_remaining = 6;
+						}
 					}
 					else {
 						++state->game_move_count;
 						while (state->storages[DISCARD].usage > 0) {
-							cs_move_top_card_to_top(&state->storages[DISCARD], &state->storages[DECK], 8);
+							cs_move_top_card_to_top(&state->storages[DISCARD], &state->storages[DECK], 0);
 							card_set_facing(state_storage_top_card(*state, DECK), CARD_FACING_DOWN);
+							state_storage_top_card(*state, DECK).target_x = 2;
 						}
 						state_set_source_colum(state, COLUM);
 						state->selection_source_index = state->storages[COLUM].usage - 1;
+						if (state->storages[DECK].usage >= 1) {
+							state->storages[DECK].data[state->storages[DECK].usage - 1].life_remaining = 6;
+						}
+						if (state->storages[DECK].usage >= 2) {
+							state->storages[DECK].data[state->storages[DECK].usage - 2].life_remaining = 6;
+						}
 					}
 				break;
 
@@ -194,17 +228,16 @@ void kd_step(struct State* state, uint8_t key) {
 				break;
 
 				case sk_Power:
-					state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
-					if (state_is_valid_target(*state)) {
+					if (state_is_valid_selected_target(state, card_suit(state_selection_source_card(*state)) + SCORING)) {
+						state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
 						state_perform_game_move(state);
 						state_set_target_colum(state, 0);
-						break;
 					}
 				break;
 		
 				case sk_2nd:
 				case sk_Enter:
-				if (state_is_valid_selected_source_index(state, state->selection_source_index)) {
+				if (state_is_valid_selected_source_index(state, state->selection_source_index) || state_is_sin_mode(*state)) {
 					state_set_target_colum(state, state->selection_source);
 					state->game_state = GAME_STATE_SELECT_TARGET;
 				}
@@ -291,12 +324,14 @@ void kd_step(struct State* state, uint8_t key) {
 				break;
 
 				case sk_Power:
-					state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
+					if (state_is_valid_selected_target(state, card_suit(state_selection_source_card(*state)) + SCORING)) {
+						state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
+					}
 				break;
 
 				case sk_2nd:
 				case sk_Enter:
-					if (state_is_valid_target(*state)) {
+					if (state_is_valid_target(*state) || state_is_sin_mode(*state)) {
 						state_perform_game_move(state);
 					}
 					state->game_state = GAME_STATE_SELECT_SOURCE;
@@ -351,11 +386,8 @@ void kd_step(struct State* state, uint8_t key) {
 		case GAME_STATE_WON: {
 			switch (key) {
 				case sk_2nd:
-					for (uint8_t i = 0; i < CARD_STORAGE_NUMBER; ++i) {
-						cs_zero(&state->storages[i]);
-					}
 					state->game_state = GAME_STATE_NULL;
-					state->program_state = PROGRAM_STATE_MAIN_MENU;
+					state->program_state = PROGRAM_STATE_NULL;
 				break;
 			}
 		} break;
@@ -422,6 +454,8 @@ void kd_fx_draw(struct State* state) {
 	// playfield
 	kd_fx_draw_tableau(state);
 
+	if (state_is_sin_mode(*state)) gfx_SetTextFGColor(COLOR_INVALID_SELECTION);
+	else gfx_SetTextFGColor(COLOR_WHITE);
 	gfx_SetTextScale(2, 2);
 	gfx_PrintStringXY("Time: ", 5, 224);
 	gfx_PrintInt((clock() - state->time_game_begin) / CLOCKS_PER_SEC, 1);
@@ -440,12 +474,9 @@ void kd_fx_draw_talon(struct State* state) {
 		uint8_t num_to_draw = min(3, state->storages[DECK].usage);
 		for (uint8_t i = 0; i < num_to_draw; ++i) {
 			struct Card* card = &state->storages[DECK].data[state->storages[DECK].usage + i - num_to_draw];
-			card->target_x = 2 + i * 12;
-			card->target_y = 2;
-			gpfx_drawCard(card);
-			if (DECK == state->selection_source && (state->storages[DECK].usage + i - num_to_draw) == state->selection_source_index) {
-				gpfx_draw_highlight(card);
-			}
+			uint24_t x = 2 + i * 12;
+			uint8_t y = 2;
+			gpfx_draw_maybe_animated_card(state->animation_queue, card, x, y, &state->storages[DECK]);
 		}
 	}
 }
@@ -457,9 +488,9 @@ void kd_fx_draw_discard(struct State* state) {
 		uint8_t num_to_draw = min(3, state->storages[DISCARD].usage);
 		for (uint8_t i = 0; i < num_to_draw; ++i) {
 			struct Card* card = &state->storages[DISCARD].data[state->storages[DISCARD].usage + i - num_to_draw];
-			card->target_x = 80 + i * 12;
-			card->target_y = 2;
-			gpfx_drawCard(card);
+			uint24_t x = 80 + i * 12;
+			uint8_t y = 2;
+			gpfx_draw_maybe_animated_card(state->animation_queue, card, x, y, &state->storages[DISCARD]);
 			if (DISCARD == state->selection_source && (state->storages[DISCARD].usage + i - num_to_draw) == state->selection_source_index) {
 				gpfx_draw_highlight(card);
 			}

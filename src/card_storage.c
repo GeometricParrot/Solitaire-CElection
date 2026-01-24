@@ -8,7 +8,7 @@
 #include "card.h"
 #include "animation.h"
 
-void cs_zero(CardStorage* cs) {
+void cs_clear(CardStorage* cs) {
 	cs->redraw_frames = 1;
 	cs->usage = 0;
 	memset(cs->data, 0, sizeof(struct Card) * CARD_STORAGE_CAPACITY);

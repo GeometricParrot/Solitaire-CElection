@@ -37,7 +37,8 @@ enum GAME_STATE {
 struct State {
 	// flags def:
 	// T: valid_target
-	// 0000'000T
+	// S: sinner mode (cheat)
+	// 0000'00ST
 	uint8_t flags;
 	enum PROGRAM_STATE program_state;
 	enum GAME_STATE game_state;
@@ -56,10 +57,16 @@ struct State {
 #define state_is_valid_target(state) ((state).flags & 0b00000001)
 #define state_set_is_valid_target(state, set) ((state).flags = ((state).flags & 0b11111110) | set)
 
+#define state_is_sin_mode(state) ((state).flags & 0b00000010)
+#define state_set_is_sin_mode(state, set) ((state).flags = ((state).flags & 0b11111101) | (set << 1))
+
 #define state_selection_source_card(state) ((state).storages[(state).selection_source].data[(state).selection_source_index])
 #define state_storage_top_card(state, index) (state).storages[index].data[(state).storages[index].usage - 1]
 #define state_storage_top_index(state, index) ((state).storages[index].usage - 1)
 
+void state_clear(struct State* state);
+
+bool state_is_valid_selected_target(struct State* state, uint8_t storage);
 
 void state_set_target_colum(struct State* state, uint8_t colum);
 

@@ -3,6 +3,18 @@
 #include "animation.h"
 #include "card.h"
 
+void aq_clear(struct Animation* aq) {
+	if (aq->storage) cs_clear(aq->storage);
+	aq->current_x = 0;
+	aq->current_y = 0;
+	if (aq->behind_sprite) {
+		free(aq->behind_sprite);
+		aq->behind_sprite = NULL;
+	}
+	aq->card.flags = 0;
+	aq->card.life_remaining = 0;
+	aq->card.value = CARD_VALUE_INVALID;
+}
 
 void animate(struct Animation* animation) {
 	animation->current_x = (animation->current_x + animation->card.target_x) / 2;

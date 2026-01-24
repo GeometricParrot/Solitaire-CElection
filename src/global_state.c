@@ -120,6 +120,14 @@ void state_storage_fill_with_cards(struct State* state, uint8_t storage) {
 
 void state_perform_game_move(struct State* state) {
 	++state->game_move_count;
+	if (state->selection_source == DISCARD) {
+		if (state->storages[DISCARD].usage >= 1) {
+			state->storages[DISCARD].data[state->storages[DISCARD].usage - 1].life_remaining = 4;
+		}
+		if (state->storages[DISCARD].usage >= 2) {
+			state->storages[DISCARD].data[state->storages[DISCARD].usage - 2].life_remaining = 4;
+		}
+	}
 	cs_move_cards(
 		&state->storages[state->selection_source], &state->storages[state->selection_target],
 		state->selection_source_index, state->storages[state->selection_target].usage, 0, 8
@@ -131,4 +139,24 @@ void state_perform_game_move(struct State* state) {
 
 void state_update_source_index_to_last(struct State* state) {
 	state->selection_source_index = state->storages[state->selection_source].usage - 1;
+}
+
+void state_clear(struct State* state) {
+	state->flags = 0;
+	state->program_state = PROGRAM_STATE_NULL;
+	state->game_state = GAME_STATE_NULL;
+	state->selection_source = 0;
+	state->selection_source_index = 0;
+	state->selection_target = 0;
+	state->selection_target_index = 0;
+	state->game_move_count = 0;
+	state->time_game_begin = 0;
+	state->time_frame_begin = 0;
+	uint8_t i;
+	for (i = 0; i < sizeof(state->animation_queue) / sizeof(struct Animation); ++i) {
+		aq_clear(&state->animation_queue[i]);
+	}
+	for (i = 0; i < sizeof(state->storages) / sizeof(CardStorage); ++i) {
+		cs_clear(&state->storages[i]);
+	}
 }

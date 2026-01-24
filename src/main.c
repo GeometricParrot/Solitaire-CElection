@@ -50,42 +50,13 @@ bool step(struct State* state)
 
 	switch (state->program_state) {
 		case PROGRAM_STATE_NULL: {
-			state->flags = 0;
+			state_clear(state);
 			state->program_state = PROGRAM_STATE_MAIN_MENU;
-			state->game_state = GAME_STATE_NULL;
-			state->selection_source = 0;
-			state->selection_source_index = 0;
-			state->selection_target = 0;
-			state->selection_target_index = 0;
-			state->game_move_count = 0;
-			state->time_game_begin = 0;
-			state->time_frame_begin = 0;
-			memset(state->animation_queue, 0, AQ_CAPACITY * sizeof(struct Animation));
-			for (CardStorage* p = state->storages;
-				p < state->storages + sizeof(CardStorage) * CARD_STORAGE_NUMBER;
-				p += sizeof(CardStorage)
-			) {
-				cs_zero(p);
-			}
-			memset(state->storages, 0, CARD_STORAGE_NUMBER * sizeof(CardStorage));
 		} break;
 
 		case PROGRAM_STATE_MAIN_MENU: {
-			if (key == sk_Sin) {
-				kd_init(state);
-				//for (uint8_t colum = COLUM; colum < COLUM + 4; ++colum) {
-				//	for (uint8_t value = CARD_VALUE_KING; value >= CARD_VALUE_ACE; --value) {
-				//		struct Card card;
-				//		card.value = value;
-				//		card_set_facing(card, CARD_FACING_UP);
-				//		card_set_suit(card, (colum - 2 + (2 * value)) & 0b11);
-				//		cs_insert_to_top_card(&state->storages[colum], card);
-				//	}
-				//}
-				state->program_state = PROGRAM_STATE_KLONDIKE_IN_GAME;
-				state->game_state = GAME_STATE_SELECT_SOURCE;
-				state->time_game_begin = clock();
-			} else if (key) {
+			if (key) {
+				if (key == sk_Sin) state_set_is_sin_mode(*state, true);
 				kd_init(state);
 				state->program_state = PROGRAM_STATE_KLONDIKE_IN_GAME;
 				state->game_state = GAME_STATE_SELECT_SOURCE;

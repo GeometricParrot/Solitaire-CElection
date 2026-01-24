@@ -15,7 +15,7 @@ typedef struct {
 	struct Card data[CARD_STORAGE_CAPACITY];
 } CardStorage;
 
-void cs_zero(CardStorage* cs);
+void cs_clear(CardStorage* cs);
 bool cs_shuffle(CardStorage* cs);
 void cs_debug_print(CardStorage* cs);
 // moves cards, number = 0 means many
