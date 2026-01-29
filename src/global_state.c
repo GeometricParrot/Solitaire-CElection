@@ -154,7 +154,7 @@ void state_clear(struct State* state) {
 	state->time_frame_begin = 0;
 	uint8_t i;
 	for (i = 0; i < sizeof(state->animation_queue) / sizeof(struct Animation); ++i) {
-		aq_clear(&state->animation_queue[i]);
+		an_clear(&state->animation_queue[i]);
 	}
 	for (i = 0; i < sizeof(state->storages) / sizeof(CardStorage); ++i) {
 		cs_clear(&state->storages[i]);

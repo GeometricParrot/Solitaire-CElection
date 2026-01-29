@@ -7,7 +7,6 @@
 #include <stdbool.h>
 #include "card.h"
 struct Animation;
-struct AnimationQueue;
 
 typedef struct {
 	uint8_t usage;
@@ -73,5 +72,7 @@ bool cs_move_top_cards_to_top(
 	CardStorage* target_storage,
 	uint8_t number
 );
+
+bool cs_take_top_card(CardStorage* cs, struct Card* out);
 
 #endif

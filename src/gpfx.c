@@ -5,6 +5,7 @@
 #include "bit_sprites.h"
 #include "card_storage.h"
 #include "animation.h"
+#include <debug.h>
 
 int gpfx_drawCard(struct Card* card) {
 	// facedown
@@ -85,12 +86,16 @@ bool gpfx_draw_maybe_animated_card(struct Animation* aq, struct Card* card, uint
 	card->target_y = y;
 	if ((x != old_x || y != old_y) && card->life_remaining > 0) {
 		aq_submit_animation(aq, card, cs, old_x, old_y);
+		//--card->life_remaining;
 		return true;
 	}
+	dbg_printf("drawing static");
+	card_dbg_print(*card);
 	card->life_remaining = 0;
 	gpfx_drawCard(card);
 	return false;
 }
+
 
 void gpfx_drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale) {
 	gfx_SetTextScale(scale, scale);

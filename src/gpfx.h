@@ -23,7 +23,4 @@ void gpfx_draw_highlight(struct Card* card);
 bool gpfx_draw_maybe_animated_card(struct Animation* aq, struct Card* card, uint24_t x, uint8_t y, CardStorage* cs);
 void gpfx_drawShadowText(const char* str, uint8_t x, uint8_t y, uint8_t scale);
 
-
-
-
 #endif

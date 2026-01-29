@@ -94,22 +94,7 @@ void draw(struct State* state)
 		break;
 
 		case PROGRAM_STATE_KLONDIKE_IN_GAME:
-			switch (state->game_state) {
-				case GAME_STATE_SELECT_SOURCE:
-				case GAME_STATE_SELECT_TARGET:
-					kd_fx_draw(state);
-				break;
-
-				case GAME_STATE_WON:
-				break;
-				
-				case GAME_STATE_AUTOWIN:
-				break;
-				case GAME_STATE_NULL:
-				break;
-				case GAME_STATE_WINNING_ANIMATION:
-				break;
-			}
+			kd_fx_draw(state);
 		break;
 	}
 	dbg_printf("step + frame took %d\n", (int)((clock() / (CLOCKS_PER_SEC/1000)) - state->time_frame_begin));

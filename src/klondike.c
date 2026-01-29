@@ -350,24 +350,19 @@ void kd_step(struct State* state, uint8_t key) {
 			} else {
 				for (uint8_t source = DISCARD; source < COLUM + 7; ++source) {
 					if (state->storages[source].usage > 0) {
-						for (uint8_t target = SCORING; target < SCORING + 4; ++target) {
-							if (
-								( // correct suit
-									card_suit(state_storage_top_card(*state, source)) == target - SCORING
-								) && (
-									(
-										state->storages[target].usage == 0 // target empty
-										&& (state_storage_top_card(*state, source).value == CARD_VALUE_ACE) // source is ace
-									) || ( // target used and source == target + 1
-										state->storages[target].usage > 0 // target has cards
-										&& state_storage_top_card(*state, source).value == state_storage_top_card(*state, target).value + 1 // == target + 1
-									)
-								)
-							) {
+						uint8_t target = SCORING + card_suit(state_storage_top_card(*state, source));
+						if (
+							(
+								state->storages[target].usage == 0 // target empty
+								&& (state_storage_top_card(*state, source).value == CARD_VALUE_ACE) // source is ace
+							) || ( // target used and source == target + 1
+								state->storages[target].usage > 0 // target has cards
+								&& state_storage_top_card(*state, source).value == state_storage_top_card(*state, target).value + 1 // == target + 1
+							)
+						) {
 								dbg_printf("Moving card for autowin\n");
-								cs_move_top_card_to_top(&state->storages[source], &state->storages[target], 6);
+								cs_move_top_card_to_top(&state->storages[source], &state->storages[target], 4);
 								return;
-							}
 						}
 					}
 				}
@@ -376,8 +371,22 @@ void kd_step(struct State* state, uint8_t key) {
 		} break;
 
 		case GAME_STATE_WINNING_ANIMATION: {
-			//uint8_t temp = rand() % 4;
-			//submit_animation(&state_storage_top_card(state, temp), rand() % (320 - CARD_WIDTH), rand() % (240 - CARD_HEIGHT), temp);
+			static uint8_t temp = 0;
+			temp = (temp + 1) % 4;
+			//state->storages[SCORING + temp].redraw_frames = 5;
+			struct Card card;
+			if (cs_take_top_card(&state->storages[SCORING + temp], &card)) {
+				uint8_t old_x = card.target_x;
+				uint8_t old_y = card.target_y;
+				card.life_remaining = 6;
+				card.target_x = rand() % (320 - CARD_WIDTH);
+				card.target_y = rand() % (240 - CARD_HEIGHT);
+				aq_submit_animation(state->animation_queue, &card, NULL, old_x, old_y);
+				aq_queue_condense(state->animation_queue);
+			} else {
+				state->game_state = GAME_STATE_WON;
+			}
+			
 			if (key == sk_2nd) {
 				state->game_state = GAME_STATE_WON;
 			}
@@ -389,6 +398,10 @@ void kd_step(struct State* state, uint8_t key) {
 					state->game_state = GAME_STATE_NULL;
 					state->program_state = PROGRAM_STATE_NULL;
 				break;
+
+				default:
+					if (key) state->game_state = GAME_STATE_WINNING_ANIMATION;
+				break;
 			}
 		} break;
 
@@ -398,18 +411,10 @@ void kd_step(struct State* state, uint8_t key) {
 	}
 }
 
-void kd_fx_clear(struct State* state) {
+void kd_fx_clear_all(struct State* state) {
 	// clear the screen areas that need redrawn
-	for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
-		if (card_is_valid(state->animation_queue[i].card)) {
-			dbg_printf("clearing animated card beck with life %d\n", state->animation_queue[i].card.life_remaining);
-			gfx_Sprite_NoClip(
-				state->animation_queue[i].behind_sprite,
-				state->animation_queue[i].current_x,
-				state->animation_queue[i].current_y
-			);
-		}
-	}
+	aq_draw_back_sprites(state->animation_queue);
+
 	gfx_SetColor(0);
 	if (state->storages[DECK].redraw_frames > 0) { // deck
 		dbg_printf("Clearing Deck\n");
@@ -440,31 +445,74 @@ void kd_fx_clear(struct State* state) {
 }
 
 void kd_fx_draw(struct State* state) {
-	kd_fx_clear(state);
+	switch (state->game_state) {
+		case GAME_STATE_SELECT_SOURCE:
+		case GAME_STATE_SELECT_TARGET: {
+			kd_fx_clear_all(state);
+			kd_fx_draw_talon(state); // deck
+			kd_fx_draw_discard(state);
+			kd_fx_draw_foundations(state);
+			kd_fx_draw_tableau(state); // playfield
 
-	// draw the deck
-	kd_fx_draw_talon(state);
+			if (state_is_sin_mode(*state)) gfx_SetTextFGColor(COLOR_INVALID_SELECTION);
+			else gfx_SetTextFGColor(COLOR_WHITE);
+			gfx_SetTextScale(2, 2);
+			gfx_PrintStringXY("Time: ", 5, 224);
+			gfx_PrintInt((clock() - state->time_game_begin) / CLOCKS_PER_SEC, 1);
+			gfx_PrintStringXY("Moves: ", 160, 224);
+			gfx_PrintInt(state->game_move_count, 1);
 
-	// draw the discard pile
-	kd_fx_draw_discard(state);
+			aq_render_and_animate_cards(state->animation_queue);
 
-	// draw the scoring piles
-	kd_fx_draw_foundations(state);
+			gfx_BlitBuffer();
+		} break;
 
-	// playfield
-	kd_fx_draw_tableau(state);
+		case GAME_STATE_AUTOWIN: {
+			kd_fx_clear_all(state);
+			kd_fx_draw_discard(state);
+			kd_fx_draw_foundations(state);
+			kd_fx_draw_tableau(state); // playfield
 
-	if (state_is_sin_mode(*state)) gfx_SetTextFGColor(COLOR_INVALID_SELECTION);
-	else gfx_SetTextFGColor(COLOR_WHITE);
-	gfx_SetTextScale(2, 2);
-	gfx_PrintStringXY("Time: ", 5, 224);
-	gfx_PrintInt((clock() - state->time_game_begin) / CLOCKS_PER_SEC, 1);
-	gfx_PrintStringXY("Moves: ", 160, 224);
-	gfx_PrintInt(state->game_move_count, 1);
+			aq_render_and_animate_cards(state->animation_queue);
 
-	aq_render_and_animate_cards(state->animation_queue);
+			gfx_SetTextScale(2, 2);
+			gfx_PrintStringXY("Time: ", 5, 224);
+			gfx_PrintInt((clock() - state->time_game_begin) / CLOCKS_PER_SEC, 1);
+			gfx_PrintStringXY("Moves: ", 160, 224);
+			gfx_PrintInt(state->game_move_count, 1);
 
-	gfx_BlitBuffer();
+			gfx_BlitBuffer();
+		} break;
+		
+		case GAME_STATE_WON: {
+			kd_fx_clear_all(state);
+			kd_fx_draw_foundations(state);
+
+			aq_render_and_animate_cards(state->animation_queue);
+
+			gfx_PrintStringXY("You won", 20, 224);
+
+			gfx_BlitBuffer();
+		} break;
+
+		case GAME_STATE_WINNING_ANIMATION:
+			aq_draw_back_sprites(state->animation_queue);
+			for (uint8_t i = 0; i < AQ_CAPACITY; ++i) {
+				card_dbg_print(state->animation_queue[i].card);
+			}
+			aq_render_and_animate_cards(state->animation_queue);
+
+			gfx_PrintStringXY("Winning animation", 5, 100);
+
+
+			gfx_BlitBuffer();
+
+		break;
+		case GAME_STATE_NULL:
+			gfx_PrintStringXY("Error, Null state", 5, 224);
+			gfx_BlitBuffer();
+		break;
+	}
 }
 
 void kd_fx_draw_talon(struct State* state) {
