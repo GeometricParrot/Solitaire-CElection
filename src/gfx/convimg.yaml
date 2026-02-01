@@ -11,6 +11,7 @@ palettes:
       - color: {index: 7, r: 240, g: 240, b: 240} # unknown selection
       - color: {index: 8, r: 255, g: 69, b: 16} # invalid selection
       - color: {index: 9, r: 255, g: 255, b: 255} # all white
+      - color: {index: 10, r: 7, g: 131, b: 31} # alt green
     images: automatic
 
 converts:

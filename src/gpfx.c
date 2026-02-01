@@ -85,7 +85,7 @@ bool gpfx_draw_maybe_animated_card(struct Animation* aq, struct Card* card, uint
 	card->target_x = x;
 	card->target_y = y;
 	if ((x != old_x || y != old_y) && card->life_remaining > 0) {
-		aq_submit_animation(aq, card, cs, old_x, old_y);
+		aq_submit_animation(aq, card, cs, old_x, old_y, 0b1111);
 		//--card->life_remaining;
 		return true;
 	}

@@ -9,9 +9,10 @@
 #include "animation.h"
 
 void cs_clear(CardStorage* cs) {
+	dbg_printf("cs_clear() on %d\n", (int)cs);
 	cs->redraw_frames = 1;
 	cs->usage = 0;
-	memset(cs->data, 0, sizeof(struct Card) * CARD_STORAGE_CAPACITY);
+	memset(&cs->data[0], 0, sizeof(struct Card) * CARD_STORAGE_CAPACITY);
 }
 
 bool cs_shuffle(CardStorage* cs) {

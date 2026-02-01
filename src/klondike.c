@@ -3,12 +3,21 @@
 #include <debug.h>
 #include "bit_sprites.h"
 
-void kd_init(struct State* state) {
-	dbg_printf("init_klondike()\n");
+void kd_queue_full_redraw(struct State* state) {
 	gfx_SetDrawBuffer();
 	gfx_ZeroScreen();
+	for (uint8_t i = 0; i < CARD_STORAGE_NUMBER; ++i) {
+		state->storages[i].redraw_frames = 1;
+	}
+}
+
+void kd_init(struct State* state) {
+	dbg_printf("init_klondike()\n");
+	
+	kd_queue_full_redraw(state);
 
 	aq_init(state->animation_queue);
+
 	if (state_is_sin_mode(*state)) {
 		dbg_printf("Starting game in sinner mode.\n");
 		for (uint8_t colum = COLUM; colum < COLUM + 4; ++colum) {
@@ -42,7 +51,6 @@ void kd_init(struct State* state) {
 	}
 	}
 	state_set_source_colum(state, COLUM);
-	//state_update_source_index_to_last(state);
 }
 
 bool kd_is_autowinnable(struct State* state) {
@@ -78,6 +86,10 @@ bool kd_is_won(struct State* state) {
 }
 
 void kd_step(struct State* state, uint8_t key) {
+	if (state->flags & 0b100) {
+		kd_queue_full_redraw(state);
+		state->flags ^= 0b100;
+	}
 	switch (state->game_state) {
 		case GAME_STATE_SELECT_SOURCE: {
 			switch (key) {
@@ -91,6 +103,7 @@ void kd_step(struct State* state, uint8_t key) {
 					dbg_printf("Set sin mode to %d\n", (state->flags & 0b10) >> 1);
 				break;
 
+				case sk_Mode:
 				case sk_Store:
 					if (state->storages[DECK].usage > 0) {
 						++state->game_move_count;
@@ -227,6 +240,7 @@ void kd_step(struct State* state, uint8_t key) {
 				}
 				break;
 
+				case sk_GraphVar:
 				case sk_Power:
 					if (state_is_valid_selected_target(state, card_suit(state_selection_source_card(*state)) + SCORING)) {
 						state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
@@ -323,6 +337,7 @@ void kd_step(struct State* state, uint8_t key) {
 					} while (true);
 				break;
 
+				case sk_GraphVar:
 				case sk_Power:
 					if (state_is_valid_selected_target(state, card_suit(state_selection_source_card(*state)) + SCORING)) {
 						state_set_target_colum(state, card_suit(state_selection_source_card(*state)) + SCORING);
@@ -376,15 +391,16 @@ void kd_step(struct State* state, uint8_t key) {
 			//state->storages[SCORING + temp].redraw_frames = 5;
 			struct Card card;
 			if (cs_take_top_card(&state->storages[SCORING + temp], &card)) {
+				state->storages[SCORING + temp].redraw_frames = 0;
 				uint8_t old_x = card.target_x;
 				uint8_t old_y = card.target_y;
 				card.life_remaining = 6;
 				card.target_x = rand() % (320 - CARD_WIDTH);
 				card.target_y = rand() % (240 - CARD_HEIGHT);
-				aq_submit_animation(state->animation_queue, &card, NULL, old_x, old_y);
-				aq_queue_condense(state->animation_queue);
+				aq_submit_animation(state->animation_queue, &card, NULL, old_x, old_y, 0b0001);
+				//aq_queue_condense(state->animation_queue);
 			} else {
-				state->game_state = GAME_STATE_WON;
+				//state->game_state = GAME_STATE_WON;
 			}
 			
 			if (key == sk_2nd) {
@@ -485,12 +501,17 @@ void kd_fx_draw(struct State* state) {
 		} break;
 		
 		case GAME_STATE_WON: {
-			kd_fx_clear_all(state);
+			aq_draw_back_sprites(state->animation_queue);
+			//kd_fx_clear_all(state);
 			kd_fx_draw_foundations(state);
 
 			aq_render_and_animate_cards(state->animation_queue);
 
-			gfx_PrintStringXY("You won", 20, 224);
+			gfx_SetColor(10);
+			gfx_FillRectangle_NoClip(20, 80, GFX_LCD_WIDTH - 40, 40);
+			gfx_SetTextFGColor(COLOR_WHITE);
+			gfx_SetTextScale(2, 2);
+			gfx_PrintStringXY("You won", 30, 90);
 
 			gfx_BlitBuffer();
 		} break;
@@ -502,7 +523,7 @@ void kd_fx_draw(struct State* state) {
 			}
 			aq_render_and_animate_cards(state->animation_queue);
 
-			gfx_PrintStringXY("Winning animation", 5, 100);
+			//gfx_PrintStringXY("Winning animation", 5, 100);
 
 
 			gfx_BlitBuffer();

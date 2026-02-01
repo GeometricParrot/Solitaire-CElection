@@ -22,6 +22,7 @@ enum PROGRAM_STATE {
 	PROGRAM_STATE_NULL,
 	PROGRAM_STATE_MAIN_MENU,
 	PROGRAM_STATE_KLONDIKE_IN_GAME,
+	PROGRAM_STATE_POPUP_MENU,
 };
 
 enum GAME_STATE {
@@ -38,8 +39,11 @@ struct State {
 	// flags def:
 	// T: valid_target
 	// S: sinner mode (cheat)
-	// 0000'00ST
+	// R: full redraw
+	// 0000'0RST
 	uint8_t flags;
+	uint8_t menu_selection;
+	enum PROGRAM_STATE popup_previous_state;
 	enum PROGRAM_STATE program_state;
 	enum GAME_STATE game_state;
 	size_t selection_source;
